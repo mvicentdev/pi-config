@@ -1,0 +1,8 @@
+{
+  "name": "pi-config",
+  "private": true,
+  "description": "Configuración de pi de mvicentdev: extensiones propias; install.sh copia agent/ en ~/.pi/agent",
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}

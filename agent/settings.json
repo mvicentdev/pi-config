@@ -1,0 +1,29 @@
+{
+  "packages": [
+    "git:github.com/mvicentdev/pi-config",
+    "git:github.com/DietrichGebert/ponytail",
+    "npm:@ff-labs/pi-fff",
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:@spences10/pi-themes",
+    "npm:@tintinweb/pi-subagents",
+    "npm:@tintinweb/pi-tasks",
+    "npm:awesome-pi-themes",
+    "npm:pi-btw",
+    "npm:pi-context-view",
+    "npm:pi-web-access"
+  ],
+  "theme": "ghostty-night-owl-magenta",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-5-5",
+  "editorPaddingX": 0,
+  "outputPad": 1,
+  "quietStartup": true,
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "hideThinkingBlock": true,
+  "compaction": {
+    "reserveTokens": 60000
+  }
+}

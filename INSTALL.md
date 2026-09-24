@@ -98,7 +98,7 @@ Informa de cada comprobación con su resultado y de lo que quede pendiente del u
 
 ## Publicar cambios en la configuración común
 
-El clon de `~/.pi/agent/git` es de pi: `pi update` lo reinicia y lo limpia, así que no se edita. Se
+El clon de `~/.pi/agent/git` es de pi: al actualizarse lo reinicia y lo limpia, así que no se edita. Se
 trabaja en un clon propio con la identidad de GitHub `mvicentdev`:
 
 ```bash
@@ -111,4 +111,5 @@ git config user.email 142339502+mvicentdev@users.noreply.github.com
 
 Los paquetes se gestionan con `./packages.sh`, nunca con `npm` directamente. El título del commit
 sigue Conventional Commits, y el push va a `main` después de que el usuario haya visto el diff y dado
-el visto bueno. Cada usuario recibe el cambio con `pi update`.
+el visto bueno. Cada usuario recibe el cambio con
+`pi update git:github.com/mvicentdev/pi-config`.

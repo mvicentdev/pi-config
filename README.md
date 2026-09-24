@@ -11,8 +11,9 @@ El script instala pi si falta (requiere Node.js 22.19+, npm y git) y ejecuta
 `pi install git:github.com/mvicentdev/pi-config`. pi clona así el repositorio en
 `~/.pi/agent/git/github.com/mvicentdev/pi-config` e instala sus dependencias, y el script enlaza desde
 `~/.pi/agent` los ficheros comunes que pi solo lee de ahí. Después, `/login` dentro de pi. Cada usuario
-lo ejecuta con su cuenta. `pi update` trae la última versión publicada, y volver a ejecutar el script
-también rehace los enlaces.
+lo ejecuta con su cuenta. `pi update git:github.com/mvicentdev/pi-config` trae la última versión
+publicada (`pi update` a secas solo actualiza pi), y volver a ejecutar el script también la trae y
+rehace los enlaces.
 
 Un agente que instale esta configuración sigue [INSTALL.md](INSTALL.md).
 
@@ -41,10 +42,10 @@ las entradas que cambian respecto del común.
 
 ## Cambiar la configuración común
 
-El clon que gestiona pi no se edita: `pi update` lo reinicia y lo limpia. Se trabaja en un clon propio,
-se publica con `git commit` y `git push`, y cada usuario lo recibe con `pi update`. Los paquetes se
-gestionan con `packages.sh`, que ejecuta npm en el clon y regenera el manifiesto `pi` de
-`package.json`:
+El clon que gestiona pi no se edita: al actualizarse, pi lo reinicia y lo limpia. Se trabaja en un
+clon propio, se publica con `git commit` y `git push`, y cada usuario lo recibe con
+`pi update git:github.com/mvicentdev/pi-config`. Los paquetes se gestionan con `packages.sh`, que
+ejecuta npm en el clon y regenera el manifiesto `pi` de `package.json`:
 
 ```bash
 ./packages.sh install pi-btw

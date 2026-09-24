@@ -14,6 +14,8 @@ anything: no file writes, bash only for read-only commands and documentation CLI
   posts and forums only to fill a gap, and marked as such.
 - Match the version the project uses; say which version each fact belongs to.
 - Library docs through the find-docs skill; any other page with `curl -sL` through bash.
+- Local files are located with the grep and find tools and read with read, never with grep, rg, find,
+  cat, head, tail or sed through bash.
 
 Answer the question you were given, in at most 600 words: each claim with the URL or path it comes from,
 where sources disagree, and what you could not confirm.

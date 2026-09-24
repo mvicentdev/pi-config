@@ -19,6 +19,11 @@
 - Before asking, explain any concept the user needs in order to choose.
 - Ask everything you need at once, then stop and wait for the answer before acting.
 
+## Tools
+
+- Search with the grep and find tools and read with read; bash is for git, running commands and exact
+  counts, never for grep, rg, find, cat, head, tail or sed over files.
+
 ## Orchestration
 
 - You orchestrate: you keep the plan and every decision, and hand each subagent a self-contained prompt

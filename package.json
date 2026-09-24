@@ -1,8 +1,43 @@
 {
-  "name": "pi-config",
+  "name": "pi-shared",
   "private": true,
-  "description": "Configuración de pi de mvicentdev: extensiones propias; install.sh copia agent/ en ~/.pi/agent",
+  "description": "Conocimiento y configuración de pi compartidos por todos los usuarios de esta máquina",
+  "scripts": {
+    "postinstall": "for p in patches/*.patch; do patch -d node_modules -p1 -R -s -f --dry-run < \"$p\" >/dev/null || patch -d node_modules -p1 -s < \"$p\" || exit 1; done"
+  },
+  "dependencies": {
+    "@dietrichgebert/ponytail": "github:DietrichGebert/ponytail",
+    "@ff-labs/pi-fff": "^0.11.0",
+    "@juicesharp/rpiv-ask-user-question": "^2.11.0",
+    "@tintinweb/pi-subagents": "^0.19.0",
+    "awesome-pi-themes": "^1.2.13",
+    "pi-btw": "^0.6.0",
+    "pi-context-view": "^0.6.0",
+    "pi-web-access": "^0.31.0"
+  },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions",
+      "./node_modules/@dietrichgebert/ponytail/pi-extension/index.js",
+      "./node_modules/@ff-labs/pi-fff/src/index.ts",
+      "./node_modules/@juicesharp/rpiv-ask-user-question/index.ts",
+      "./node_modules/@tintinweb/pi-subagents/src/index.ts",
+      "./node_modules/awesome-pi-themes/extensions",
+      "./node_modules/pi-btw/extensions/btw.ts",
+      "./node_modules/pi-context-view/src/index.ts",
+      "./node_modules/pi-web-access/dist"
+    ],
+    "skills": [
+      "./skills",
+      "./node_modules/@dietrichgebert/ponytail/skills",
+      "./node_modules/pi-btw/skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ],
+    "themes": [
+      "./themes",
+      "./node_modules/awesome-pi-themes/themes"
+    ]
   }
 }

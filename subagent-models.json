@@ -1,0 +1,44 @@
+{
+  "anthropic": {
+    "explorer": {
+      "model": "claude-sonnet-5",
+      "thinking": "low"
+    },
+    "researcher": {
+      "model": "inherit",
+      "thinking": "medium"
+    },
+    "worker": {
+      "model": "inherit",
+      "thinking": "medium"
+    }
+  },
+  "openai-codex": {
+    "explorer": {
+      "model": "gpt-6-luna",
+      "thinking": "low"
+    },
+    "researcher": {
+      "model": "gpt-6-luna",
+      "thinking": "medium"
+    },
+    "worker": {
+      "model": "gpt-6-sol",
+      "thinking": "medium"
+    }
+  },
+  "opencode-go": {
+    "explorer": {
+      "model": "deepseek-v4.1-flash",
+      "thinking": "low"
+    },
+    "researcher": {
+      "model": "deepseek-v4.1-flash",
+      "thinking": "medium"
+    },
+    "worker": {
+      "model": "deepseek-v4.1-flash",
+      "thinking": "high"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+--- a/@tintinweb/pi-subagents/src/ui/agent-widget.ts
++++ b/@tintinweb/pi-subagents/src/ui/agent-widget.ts
+@@ -414,7 +414,7 @@
+    * Render the widget content. Called from the registered widget's render() callback,
+    * reading live state each time instead of capturing it in a closure.
+    */
+-  private renderWidget(tui: any, theme: Theme): string[] {
++  private renderWidget(tui: any, theme: Theme, width: number): string[] {
+     const allAgents = this.widgetAgents();
+     const running = allAgents.filter(a => a.status === "running");
+     const queued = allAgents.filter(a => a.status === "queued");
+@@ -429,7 +429,7 @@
+     // Nothing to show — return empty (widget will be unregistered by update())
+     if (!hasActive && !hasFinished) return [];
+ 
+-    const w = tui.terminal.columns;
++    const w = width;
+     const truncate = (line: string) => truncateToWidth(line, w);
+     const headingColor = hasActive ? "accent" : "dim";
+     const headingIcon = hasActive ? "●" : "○";
+@@ -628,7 +628,7 @@
+       this.uiCtx.setWidget("agents", (tui, theme) => {
+         this.tui = tui;
+         return {
+-          render: () => this.renderWidget(tui, theme),
++          render: (width: number) => this.renderWidget(tui, theme, width),
+           invalidate: () => {
+             // Theme changed — force re-registration so factory captures fresh theme.
+             this.widgetRegistered = false;

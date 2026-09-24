@@ -1,0 +1,7 @@
+{
+  "workflowsEnabled": false,
+  "reportUsage": true,
+  "disableDefaultAgents": true,
+  "fallbackSubagent": "none",
+  "toolDescriptionMode": "compact"
+}

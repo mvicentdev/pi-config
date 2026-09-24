@@ -9,8 +9,8 @@ macOS y en Linux; en Windows no, porque `install.sh` es de bash y usa enlaces si
 - Lo personal de `~/.pi/agent` no se sobrescribe ni se borra sin que el usuario lo apruebe:
   `auth.json`, `settings.json`, `models.json`, `APPEND_SYSTEM.md`, `status-line.json`,
   `max-width.json`, `autocorrect.json`, `trust.json`, sesiones y temas propios.
-- `/login` y cualquier contraseña los hace el usuario en su terminal; el agente le da el comando exacto
-  y espera.
+- `sudo`, `/login` y cualquier contraseña los hace el usuario en su terminal; el agente le da el
+  comando exacto y espera. Lo mismo vale para lo que haya que hacer con la cuenta de otro usuario.
 - Nada se publica (commit o push) sin que el usuario haya visto el diff y dado el visto bueno.
 
 ## 1. Comprobar requisitos
@@ -29,7 +29,7 @@ Si falta Node.js, npm o git, se lo dices al usuario y te detienes: instalarlos d
 Si el usuario ya usaba pi, revisa su `~/.pi/agent` antes de instalar, porque lo suyo tiene
 preferencia sobre lo común:
 
-- `pi list`: si ya aparece `git:github.com/mvicentdev/pi-config`, está instalada y el paso 3 la
+- `pi list`: si ya aparece `git:github.com/mvicentdev/pi-config`, está instalada y el paso 4 la
   actualiza. Si aparece otra fuente que ya traiga este paquete, sea una ruta local a un clon o uno de
   los paquetes de las `dependencies` de [package.json](package.json), se cargaría dos veces: propón
   quitarla con `pi remove <fuente>`.
@@ -41,7 +41,38 @@ preferencia sobre lo común:
 - Un `AGENTS.md` propio pasa a `APPEND_SYSTEM.md`. Si ya existen los dos, `install.sh` se detiene:
   el usuario decide cómo unirlos.
 
-## 3. Instalar o actualizar
+## 3. Limpiar una instalación generalizada anterior
+
+Antes esta configuración se compartía entre todos los usuarios de la máquina desde
+`/usr/local/share/pi/agent`, cargada como paquete local. Si queda rastro de ella, límpialo antes de
+instalar, porque ese paquete y el de git cargarían las mismas extensiones dos veces:
+
+```bash
+ls -la /usr/local/share/pi
+grep -l usr/local/share/pi /Users/*/.pi/agent/settings.json /home/*/.pi/agent/settings.json 2>/dev/null
+```
+
+Por cada usuario cuyo `settings.json` la cite, estos pasos. Los del usuario actual los haces tú; los
+de otro usuario se los das como comandos para que los ejecute con su cuenta.
+
+- Quita la entrada con `pi remove <fuente>`, copiando la fuente tal como aparece en `packages`, por
+  ejemplo `pi remove ../../../../usr/local/share/pi/agent`. Si la entrada es un objeto, su fuente es
+  el campo `source`, y sus filtros se van con ella.
+- Los enlaces de `~/.pi/agent` que apuntan a `/usr/local/share/pi/agent` los rehace `install.sh`.
+  Las copias reales de `subagents.json` o `pi-fff.json`, y las copias de seguridad
+  `<fichero>.bak-<fecha>` que dejó un `install.sh` anterior, se revisan como en el paso 2 y se
+  borran con la aprobación del usuario. Otras copias de seguridad, como las de `auth.json`, no se
+  tocan.
+- En `~/.pi/agent/npm/package.json`, las `dependencies` que no figuran como `npm:` en los `packages`
+  de `settings.json` están instaladas pero no se cargan. Propón quitarlas con
+  `npm uninstall --prefix ~/.pi/agent/npm <paquetes>`, y avisa de las que no traiga este paquete
+  (por ejemplo `@tintinweb/pi-tasks`), por si el usuario quiere conservarlas con `pi install`.
+- Quita la excepción de git que marcaba la carpeta como segura:
+  `git config --global --unset-all safe.directory '^/usr/local/share/pi/agent$'`.
+
+Cuando ningún `settings.json` la cite, el usuario borra la carpeta: `sudo rm -rf /usr/local/share/pi`.
+
+## 4. Instalar o actualizar
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mvicentdev/pi-config/main/install.sh | bash
@@ -50,7 +81,7 @@ curl -fsSL https://raw.githubusercontent.com/mvicentdev/pi-config/main/install.s
 Se ejecuta con la cuenta del usuario que va a usar pi y no necesita `sudo`. Cada usuario de la máquina
 lo ejecuta con la suya.
 
-## 4. Verificar
+## 5. Verificar
 
 ```bash
 pi list                                                 # incluye git:github.com/mvicentdev/pi-config

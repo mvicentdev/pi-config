@@ -4,7 +4,7 @@ description: Edits code and adds or adjusts its tests within an exact boundary s
 tools: "*, ext:pi-fff"
 prompt_mode: replace
 skills: false
-disallowed_tools: web_enable, ffgrep, fffind
+disallowed_tools: ffgrep, fffind
 color: orange
 ---
 

@@ -3,7 +3,7 @@ name: explorer
 description: Reads code without changing it — locates files and symbols, traces a flow end to end and reports what it found with file and line. Use it to understand code before changing it; it never edits.
 tools: read, bash, grep, find, ls, ext:pi-fff
 skills: false
-disallowed_tools: web_enable
+disallowed_tools: ffgrep, fffind
 color: cyan
 ---
 

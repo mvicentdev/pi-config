@@ -27,6 +27,7 @@ personal previo pasa a `APPEND_SYSTEM.md`.
 |---|---|
 | `AGENTS.md` | Instrucciones globales del agente |
 | `agents/` | Subagentes `explorer`, `researcher` y `worker` |
+| `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher` |
 | `subagents.json`, `pi-fff.json` | Ajustes de pi-subagents y pi-fff |
 | `subagent-models.json` | Modelo y razonamiento de cada subagente por proveedor |
 | `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`) y `subagent-models` |

@@ -2,7 +2,7 @@
   "anthropic": {
     "explorer": {
       "model": "claude-sonnet-5",
-      "thinking": "low"
+      "thinking": "medium"
     },
     "researcher": {
       "model": "inherit",

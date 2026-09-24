@@ -1,7 +1,7 @@
 {
-  "name": "pi-shared",
+  "name": "pi-config",
   "private": true,
-  "description": "Conocimiento y configuración de pi compartidos por todos los usuarios de esta máquina",
+  "description": "Configuración común de pi para todos sus usuarios",
   "scripts": {
     "postinstall": "for p in patches/*.patch; do patch -d node_modules -p1 -R -s -f --dry-run < \"$p\" >/dev/null || patch -d node_modules -p1 -s < \"$p\" || exit 1; done"
   },

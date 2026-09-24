@@ -1,7 +1,7 @@
 /**
  * Modelo y esfuerzo de razonamiento de cada subagente según el proveedor de la sesión:
  * `{ "<proveedor>": { "<agente>": { "model": "<id>", "thinking": "<nivel>" } } }`.
- * La base común es el subagent-models.json de la carpeta compartida; el del usuario en su
+ * La base común es el subagent-models.json de este paquete; el del usuario en su
  * ~/.pi/agent, si existe, tiene la misma forma y solo lleva lo que cambia: cada campo que declare
  * pisa al de la base para ese proveedor y agente, y el resto se hereda de ella.
  * Niveles: off, minimal, low, medium, high, xhigh, max (pi rebaja los que el modelo no admite).

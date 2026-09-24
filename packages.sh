@@ -1,12 +1,10 @@
 #!/bin/sh
-# Ejecuta npm en la carpeta común (install, uninstall, update...) y regenera el
-# manifiesto "pi" de package.json con los recursos de cada paquete instalado.
-# Ejemplo: packages.sh install pi-btw
+# Ejecuta npm en este clon (install, uninstall, update...) con las opciones de .npmrc, las mismas que
+# aplica pi al instalar el paquete, y regenera el manifiesto "pi" de package.json con los recursos de
+# cada paquete instalado. Ejemplo: ./packages.sh install pi-btw
 set -e
-cd /usr/local/share/pi/agent
-umask 002
-# Igual que `pi install`: pi aporta sus propios módulos a las extensiones.
-npm "$@" --legacy-peer-deps --no-fund --no-audit
+cd "$(dirname "$0")"
+npm "$@"
 node <<'JS'
 const fs = require("fs");
 const path = require("path");

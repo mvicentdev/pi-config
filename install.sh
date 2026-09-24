@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Instala pi y la configuración común en /usr/local/share/pi/agent (un clon de este repositorio que
-# comparten todos los usuarios de la máquina) y conecta con ella al usuario que lo ejecuta.
+# Instala pi y esta configuración común para el usuario que lo ejecuta: pi clona el repositorio como
+# paquete en ~/.pi/agent/git (o $PI_CODING_AGENT_DIR/git) e instala sus dependencias, y este script
+# enlaza en ~/.pi/agent los ficheros comunes que pi solo lee de ahí.
 #   curl -fsSL https://raw.githubusercontent.com/mvicentdev/pi-config/main/install.sh | bash
-# Volver a ejecutarlo sincroniza la carpeta con GitHub y reinstala sus paquetes. Lo personal de cada
-# usuario en ~/.pi/agent no se toca: ver link-user.sh.
+# Volver a ejecutarlo trae la última versión. Credenciales, proveedores, modelos y preferencias siguen
+# siendo de cada usuario; las instrucciones personales van en APPEND_SYSTEM.md, y los modelos de
+# subagente que cambien respecto de los comunes, en un subagent-models.json propio con solo esas entradas.
 set -euo pipefail
 
-REPO=https://github.com/mvicentdev/pi-config.git
-SHARED=/usr/local/share/pi/agent
-umask 002
+SOURCE=git:github.com/mvicentdev/pi-config
+AGENT="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+PACKAGE="$AGENT/git/github.com/mvicentdev/pi-config"
 
 command -v git >/dev/null || { echo "Falta git." >&2; exit 1; }
 command -v npm >/dev/null || { echo "Falta npm." >&2; exit 1; }
@@ -18,16 +20,20 @@ if ! command -v pi >/dev/null; then
   command -v pi >/dev/null || { echo "pi instalado, pero no está en el PATH: abre otra terminal y vuelve a ejecutar este script." >&2; exit 1; }
 fi
 
-# La carpeta es del primer usuario que instala y de su grupo, con setgid para que lo creado dentro
-# siga siendo del grupo y todos puedan editarla, sincronizarla y reinstalar sus paquetes.
-if [[ ! -d "$SHARED/.git" ]]; then
-  sudo mkdir -p "$SHARED"
-  sudo chown "$(id -un):$(id -gn)" "$SHARED"
-  sudo chmod 2775 "$SHARED"
-  git clone --quiet --config core.sharedRepository=group "$REPO" "$SHARED"
-fi
+pi install "$SOURCE" </dev/null
 
-"$SHARED/link-user.sh"
-git -C "$SHARED" pull --quiet --ff-only
-"$SHARED/packages.sh" install
+if [[ -e "$AGENT/AGENTS.md" && ! -L "$AGENT/AGENTS.md" ]]; then
+  [[ -e "$AGENT/APPEND_SYSTEM.md" ]] && { echo "Tienes AGENTS.md y APPEND_SYSTEM.md propios: une tus instrucciones en APPEND_SYSTEM.md, borra AGENTS.md y vuelve a ejecutar este script." >&2; exit 1; }
+  mv "$AGENT/AGENTS.md" "$AGENT/APPEND_SYSTEM.md"
+  echo "Tu AGENTS.md personal pasa a $AGENT/APPEND_SYSTEM.md"
+fi
+ln -sfn "$PACKAGE/AGENTS.md" "$AGENT/AGENTS.md"
+
+# Un subagents.json, pi-fff.json o agents/ propio, que no sea un enlace, tiene preferencia sobre el común.
+for file in subagents.json pi-fff.json agents; do
+  if [[ -L "$AGENT/$file" || ! -e "$AGENT/$file" ]]; then
+    ln -sfn "$PACKAGE/$file" "$AGENT/$file"
+  fi
+done
+
 echo "Listo. Arranca pi y usa /login para autenticarte."

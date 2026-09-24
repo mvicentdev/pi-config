@@ -13,6 +13,8 @@ El script instala pi si falta (requiere Node.js 22.19+, npm y git), clona el rep
 actual con `link-user.sh`, trae los cambios de GitHub e instala los paquetes. Después, `/login` dentro
 de pi. Cada usuario de la máquina lo ejecuta una vez; volver a ejecutarlo es seguro y sincroniza.
 
+Un agente que instale esta configuración sigue [INSTALL.md](INSTALL.md).
+
 ## Qué es común y qué es de cada usuario
 
 `link-user.sh` enlaza en `~/.pi/agent` (o `$PI_CODING_AGENT_DIR`) `AGENTS.md`, y también

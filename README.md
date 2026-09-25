@@ -31,7 +31,7 @@ personal previo pasa a `APPEND_SYSTEM.md`.
 | `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher` |
 | `subagents.json`, `pi-fff.json` | Ajustes de pi-subagents y pi-fff |
 | `subagent-models.json` | Modelo y razonamiento de cada subagente por proveedor |
-| `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models` y `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`) |
+| `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models`, `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`) y `feedback-reminder` (recuerda las reglas de `## Feedback` de `AGENTS.md` en cada mensaje enviado al modelo) |
 | `package.json` | Paquetes de terceros que carga pi; `patches/` los corrige tras instalarlos y `.npmrc` fija las opciones de npm |
 
 Siguen siendo de cada usuario, en su `~/.pi/agent` y fuera de este repositorio: credenciales

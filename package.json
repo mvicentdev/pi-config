@@ -6,6 +6,7 @@
     "postinstall": "for p in patches/*.patch; do patch -d node_modules -p1 -R -s -f --dry-run < \"$p\" >/dev/null || patch -d node_modules -p1 -s < \"$p\" || exit 1; done"
   },
   "dependencies": {
+    "@amaster.ai/pi-attachments": "^0.1.18",
     "@dietrichgebert/ponytail": "github:DietrichGebert/ponytail",
     "@ff-labs/pi-fff": "^0.11.0",
     "@juicesharp/rpiv-ask-user-question": "^2.11.0",
@@ -17,6 +18,7 @@
   "pi": {
     "extensions": [
       "./extensions",
+      "./node_modules/@amaster.ai/pi-attachments/dist/index.js",
       "./node_modules/@dietrichgebert/ponytail/pi-extension/index.js",
       "./node_modules/@ff-labs/pi-fff/src/index.ts",
       "./node_modules/@juicesharp/rpiv-ask-user-question/index.ts",

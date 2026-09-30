@@ -1,7 +1,7 @@
 /**
  * Ancho máximo de pi, centrado. Pi compone cada línea con `TuiMainScreen.render(ancho)`: aquí se
  * compone con el ancho máximo y se antepone el margen que lo centra en el terminal. Las ventanas
- * superpuestas siguen centradas sobre el terminal entero. `/max-width 120` lo fija y
+ * superpuestas se colocan dentro de esa misma columna. `/max-width 120` lo fija y
  * `/max-width off` lo quita; se guarda en max-width.json.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -16,11 +16,24 @@ const MIN = 40;
 // El estado vive en globalThis para que un /reload no envuelva `render` dos veces.
 // ponytail: solo el modo regular; con `tuiMode: fullscreen` (TuiAltScreen) no se limita, y los
 // clics de ratón no descuentan el margen.
-const state = ((globalThis as any).__piMaxWidth ??= { columns: 0, original: TuiMainScreen.prototype.render });
+const state = ((globalThis as any).__piMaxWidth ??= {
+	columns: 0,
+	original: TuiMainScreen.prototype.render,
+});
+// Aparte, porque un estado guardado por una versión anterior no lo tiene.
+state.originalLayout ??= (TuiMainScreen.prototype as any).resolveOverlayLayout;
+const padOf = (width: number) => Math.floor((width - state.columns) / 2);
 TuiMainScreen.prototype.render = function (width: number) {
 	if (!state.columns || width <= state.columns) return state.original.call(this, width);
-	const pad = " ".repeat(Math.floor((width - state.columns) / 2));
+	const pad = " ".repeat(padOf(width));
 	return state.original.call(this, state.columns).map((line: string) => pad + line);
+};
+// Las ventanas superpuestas (ask_user_question, /btw…) se resuelven sobre la columna y se
+// desplazan con el mismo margen.
+(TuiMainScreen.prototype as any).resolveOverlayLayout = function (options: unknown, height: number, width: number, rows: number) {
+	if (!state.columns || width <= state.columns) return state.originalLayout.call(this, options, height, width, rows);
+	const layout = state.originalLayout.call(this, options, height, state.columns, rows);
+	return { ...layout, col: layout.col + padOf(width) };
 };
 
 export default function maxWidth(pi: ExtensionAPI) {

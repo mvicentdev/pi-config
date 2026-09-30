@@ -5,7 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/mvicentdev/pi-config/main/install.sh | bash
 # Volver a ejecutarlo trae la última versión. Credenciales, proveedores, modelos y preferencias siguen
 # siendo de cada usuario; las instrucciones personales van en APPEND_SYSTEM.md, y los modelos de
-# subagente que cambien respecto de los comunes, en un subagent-models.json propio con solo esas entradas.
+# subagente que cambien respecto de los comunes, en un subagent-models.json propio con solo esas entradas,
+# que escribe /subagent-models.
 set -euo pipefail
 
 SOURCE=git:github.com/mvicentdev/pi-config

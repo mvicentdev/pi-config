@@ -28,6 +28,8 @@
 
 - You orchestrate: you keep the plan and every decision, and hand each subagent a self-contained prompt
   with an exact boundary.
+- One subagent, one question or one change: split broader work across several runs instead of one long
+  run, and pass the paths and lines you already know so it does not search for them again.
 - `explorer` reads code, `worker` edits it and adds its tests, `researcher` reads documentation.
 - When a subagent finishes, verify its work yourself before reporting: read the diff, re-run the tests it
   touched and check the result against the request. Its summary states intent, not outcome.

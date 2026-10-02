@@ -31,13 +31,13 @@ personal previo pasa a `APPEND_SYSTEM.md`.
 | `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher` |
 | `subagents.json`, `pi-fff.json` | Ajustes de pi-subagents y pi-fff |
 | `subagent-models.json` | Modelo y razonamiento de cada subagente por proveedor |
-| `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models` (`/subagent-models`), `bash-guard` (rechaza en bash `cat`, `sed`, `grep`, `rg`, `find`, `head` y `tail` sobre ficheros), `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`) y `feedback-reminder` (recuerda las reglas de `## Feedback` de `AGENTS.md` en cada mensaje enviado al modelo) |
+| `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models` (`/subagent-models`), `bash-guard` (rechaza en bash `cat`, `sed`, `grep`, `rg`, `find`, `head` y `tail` sobre ficheros), `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`), `feedback-reminder` (recuerda las reglas de `## Feedback` de `AGENTS.md` en cada mensaje enviado al modelo) y `ste` (`/ste 80`: redacción ASD-STE100, el inglés técnico simplificado, con la intensidad indicada, al 90 % por defecto; `/ste off` la quita) |
 | `package.json` | Paquetes de terceros que carga pi; `patches/` los corrige tras instalarlos y `.npmrc` fija las opciones de npm |
 
 Siguen siendo de cada usuario, en su `~/.pi/agent` y fuera de este repositorio: credenciales
 (`auth.json`), `settings.json` (tema, modelo y razonamiento por defecto, paquetes propios),
 `models.json`, `APPEND_SYSTEM.md` con sus instrucciones, y lo que guardan las extensiones:
-`status-line.json`, `max-width.json`, `autocorrect.json`. Un `subagent-models.json` propio lleva solo
+`status-line.json`, `max-width.json`, `autocorrect.json`, `ste.json`. Un `subagent-models.json` propio lleva solo
 las entradas que cambian respecto del común; `/subagent-models` lo escribe así.
 
 ## Cambiar la configuración común

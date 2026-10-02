@@ -23,13 +23,13 @@
 
 - Search with the grep and find tools and read with read; bash is for git, running commands and exact
   counts, never for grep, rg, find, cat, head, tail or sed over files.
+- The harness and usage dashboard runs at http://127.0.0.1:4317 (a local Next.js server); open it when the
+  user asks about the harness or token and cost consumption.
 
 ## Orchestration
 
-- You orchestrate: you keep the plan and every decision, and hand each subagent a self-contained prompt
-  with an exact boundary.
-- One subagent, one question or one change: split broader work across several runs instead of one long
-  run, and pass the paths and lines you already know so it does not search for them again.
+- Open `~/.agents/docs/ORCHESTRATION.md` before a task that reads more than a few files or edits more
+  than one, and before launching a subagent or an Orca worker; this section only names pi's tools.
 - `explorer` reads code, `worker` edits it and adds its tests, `researcher` reads documentation.
-- When a subagent finishes, verify its work yourself before reporting: read the diff, re-run the tests it
-  touched and check the result against the request. Its summary states intent, not outcome.
+- `steer_subagent` reaches a running subagent, `Agent` with `resume` continues a finished one, and
+  `get_subagent_result` reads its full report.

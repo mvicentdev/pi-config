@@ -3,5 +3,7 @@
   "reportUsage": true,
   "disableDefaultAgents": true,
   "fallbackSubagent": "none",
-  "toolDescriptionMode": "compact"
+  "toolDescriptionMode": "compact",
+  "fleetView": false,
+  "widgetMode": "off"
 }

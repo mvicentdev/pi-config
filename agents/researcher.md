@@ -1,6 +1,8 @@
 ---
 name: researcher
 description: Reads documentation — library and framework docs, API references, changelogs, specs and articles — and answers with sources. Use it for any fact that lives outside the code; it never edits.
+model: opencode-go/deepseek-v4.1-flash
+thinking: medium
 tools: read, bash, grep, find, ls, ext:pi-fff, ext:dist
 skills: find-docs
 disallowed_tools: ffgrep, fffind

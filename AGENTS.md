@@ -30,7 +30,15 @@
 ## Orchestration
 
 - Open `~/.agents/docs/ORCHESTRATION.md` before a task that reads more than a few files or edits more
-  than one, and before launching a subagent or a worker in an agentic IDE; this section only names pi's tools.
-- `explorer` reads code, `worker` edits it and adds its tests, `researcher` reads documentation.
+  than one, and before launching a subagent or a worker in a visible terminal; its on-demand
+  companions (`orchestration-supervised.md`, `orchestration-procedures.md`) are read only when that
+  situation arrives, and each companion holds only its own tool's binding.
+- The pi roles carry the tiers of the consorcio: `explorer` and `researcher` are the cheap reader tier,
+  `worker` the mid writer tier, `verifier` the fresh check; each role's model is set in its file in
+  `~/.pi/agent/agents/`, bound to the cheapest tier that can do the role and raised only after that
+  role has failed its task twice, never preventively. The main loop orchestrates; it never carries a
+  task a subagent's tier could carry.
 - `steer_subagent` reaches a running subagent, `Agent` with `resume` continues a finished one, and
   `get_subagent_result` reads its full report.
+- Inside T3 Code, the native `Agent` is the default; T3's `delegate_task` is only for a model or provider
+  that pi does not offer, checked first with `orchestrator_capabilities`.

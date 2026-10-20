@@ -1,6 +1,8 @@
 ---
 name: worker
 description: Edits code and adds or adjusts its tests within an exact boundary set by the orchestrator, following the project's rules, and runs the tests it touched. Never commits.
+model: opencode-go/deepseek-v4.1-flash
+thinking: high
 tools: "*, ext:pi-fff"
 prompt_mode: replace
 skills: false

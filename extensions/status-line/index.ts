@@ -170,8 +170,9 @@ export default function statusLine(pi: ExtensionAPI) {
 			return {
 				dispose: off,
 				invalidate() {},
-				// ctx.ui.theme y no el tema del constructor: cambia cuando se aplica otro tema.
-				render: (width: number) => render(snapshot(ctx, footerData.getExtensionStatuses(), footerData.getGitBranch()), settings, barTheme ?? ctx.ui.theme, width),
+				// ctx.ui.theme y no el tema del constructor: cambia cuando se aplica otro tema. La línea vacía
+				// final separa la barra del borde inferior de la ventana (la barra de estado de Orca).
+				render: (width: number) => [...render(snapshot(ctx, footerData.getExtensionStatuses(), footerData.getGitBranch()), settings, barTheme ?? ctx.ui.theme, width), ""],
 			};
 		});
 		applyColors(ctx);

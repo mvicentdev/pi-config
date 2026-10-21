@@ -30,8 +30,8 @@ if [[ -e "$AGENT/AGENTS.md" && ! -L "$AGENT/AGENTS.md" ]]; then
 fi
 ln -sfn "$PACKAGE/AGENTS.md" "$AGENT/AGENTS.md"
 
-# Un subagents.json, pi-fff.json o agents/ propio, que no sea un enlace, tiene preferencia sobre el común.
-for file in subagents.json pi-fff.json agents; do
+# Un subagents.json, pi-fff.json, agents/ o docs/ propio, que no sea un enlace, tiene preferencia sobre el común.
+for file in subagents.json pi-fff.json agents docs; do
   if [[ -L "$AGENT/$file" || ! -e "$AGENT/$file" ]]; then
     ln -sfn "$PACKAGE/$file" "$AGENT/$file"
   fi

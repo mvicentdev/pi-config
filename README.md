@@ -21,17 +21,19 @@ Un agente que instale esta configuración sigue [INSTALL.md](INSTALL.md).
 
 El paquete carga `extensions/`, `skills/`, `prompts/`, `themes/` y los recursos de sus dependencias.
 `install.sh` enlaza además `AGENTS.md` en `~/.pi/agent` (o `$PI_CODING_AGENT_DIR`), y también
-`subagents.json`, `pi-fff.json` y `agents/` salvo que el usuario tenga los suyos. Un `AGENTS.md`
+`subagents.json`, `pi-fff.json`, `agents/` y `docs/` salvo que el usuario tenga los suyos. Un `AGENTS.md`
 personal previo pasa a `APPEND_SYSTEM.md`.
 
 | Ruta | Contenido |
 |---|---|
 | `AGENTS.md` | Instrucciones globales del agente |
-| `agents/` | Subagentes `explorer`, `researcher` y `worker` |
-| `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher` |
+| `agents/` | Subagentes `explorer`, `researcher`, `worker` y `verifier` |
+| `docs/` | `ORCHESTRATION.md` (reparto de trabajo entre subagentes), sus adaptadores por IDE en `docs/orchestration/` y `SKILLS.md` (gestión de skills globales), que cita `AGENTS.md` |
+| `themes/` | Temas `Gentleman-Sexy` y `ghostty-acid-lime-magenta` |
+| `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher`, y `jira`, gestión de issues e imputación de horas con jira-cli o el MCP de Atlassian (requiere `JIRA_API_TOKEN` y `JIRA_SERVER`) |
 | `subagents.json`, `pi-fff.json` | Ajustes de pi-subagents y pi-fff |
 | `subagent-models.json` | Modelo y razonamiento de cada subagente por proveedor |
-| `extensions/` | `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models` (`/subagent-models`), `bash-guard` (rechaza en bash `cat`, `sed`, `grep`, `rg`, `find`, `head` y `tail` sobre ficheros), `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`) y `feedback-reminder` (recuerda las reglas de `## Feedback` de `AGENTS.md` en cada mensaje enviado al modelo), `ste` (`/ste 80`: redacción ASD-STE100, el inglés técnico simplificado, con la intensidad indicada, al 90 % por defecto; `/ste off` la quita) y `subagents-panel` (panel de subagentes bajo el editor en lugar de la lista y el widget de pi-subagents; `↓` con el prompt vacío o `Ctrl+Shift+R` entra en la lista, `↑`/`↓` elige, `Enter` abre la conversación del agente y `Esc` vuelve) |
+| `extensions/` | `inline-skills` (invoca skills con `/skill:nombre` en mitad del mensaje), `status-line` (`/statusline`), `max-width` (`/max-width 120`), `autocorrect` (`/autocorrect`, solo macOS, requiere `TYPESAFE_API_KEY`), `subagent-models` (`/subagent-models`), `bash-guard` (rechaza en bash `cat`, `sed`, `grep`, `rg`, `find`, `head` y `tail` sobre ficheros), `cache-retention` (caché de prompt de 1 hora salvo que el usuario exporte otro `PI_CACHE_RETENTION`) y `feedback-reminder` (recuerda las reglas de `## Feedback` de `AGENTS.md` en cada mensaje enviado al modelo), `ste` (`/ste 80`: redacción ASD-STE100, el inglés técnico simplificado, con la intensidad indicada, al 90 % por defecto; `/ste off` la quita) y `subagents-panel` (panel de subagentes bajo el editor en lugar de la lista y el widget de pi-subagents; `↓` con el prompt vacío o `Ctrl+Shift+R` entra en la lista, `↑`/`↓` elige, `Enter` abre la conversación del agente y `Esc` vuelve) |
 | `package.json` | Paquetes de terceros que carga pi; `patches/` los corrige tras instalarlos y `.npmrc` fija las opciones de npm |
 
 Siguen siendo de cada usuario, en su `~/.pi/agent` y fuera de este repositorio: credenciales

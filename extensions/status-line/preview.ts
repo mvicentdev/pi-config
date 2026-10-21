@@ -17,7 +17,7 @@ const width = Number(process.argv[2]) || process.stdout.columns || 120;
 const now = Date.now();
 const snapshot = {
 	now,
-	cwd: "~/apps/work/ad-studio/backend",
+	cwd: "~/projects/my-app",
 	branch: "feature/status-line-selector",
 	dirty: 3,
 	sessionName: "mi-sesion",

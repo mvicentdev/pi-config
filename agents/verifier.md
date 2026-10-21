@@ -1,8 +1,6 @@
 ---
 name: verifier
 description: Fresh read-only reviewer that checks a diff against its specification and reports findings with file and line.
-model: opencode-go/glm-5.3-flash
-thinking: high
 tools: read, bash, grep, find, ls, ext:pi-fff
 skills: false
 disallowed_tools: ffgrep, fffind

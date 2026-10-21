@@ -7,9 +7,10 @@
  * Niveles: off, minimal, low, medium, high, xhigh, max (pi rebaja los que el modelo no admite).
  * Un `model` sin proveedor se busca en el de la sesión; uno como "openai-codex/gpt-6-sol" fija el suyo,
  * así cada subagente puede ir a un proveedor distinto (que necesita sus credenciales en auth.json).
- * Cuando el orquestador lanza un agente con la herramienta `Agent`, cada campo que la llamada no
- * indique se completa con la tabla. Un campo ausente o "inherit" hereda el de la sesión, y lo fijado
- * en el fichero del agente sigue mandando. Se lee en cada llamada: los cambios valen sin reiniciar.
+ * Cuando el orquestador lanza un agente con la herramienta `Agent`, la tabla manda: cada campo que
+ * fija sustituye al que indique la llamada. Un campo ausente o "inherit" deja el de la llamada o, sin
+ * él, el de la sesión. Los ficheros de agents/ no llevan `model` ni `thinking`, porque pi-subagents
+ * los antepone a la llamada y anularían la tabla. Se lee en cada llamada: los cambios valen sin reiniciar.
  * `/subagent-models` elige agente, modelo (entre los que tienen credenciales) y razonamiento para el
  * proveedor de la sesión, y guarda en el fichero del usuario solo lo que difiere de la base.
  */
@@ -121,8 +122,8 @@ export default function subagentModels(pi: ExtensionAPI) {
 		if (event.toolName !== "Agent" || !ctx.model) return;
 		const input = event.input as { subagent_type?: string; model?: string; thinking?: string };
 		const { model, thinking } = effective(read(BASE), read(USER), ctx.model.provider, input.subagent_type ?? "");
-		if (model !== INHERIT && !input.model) input.model = model;
-		if (thinking !== INHERIT && !input.thinking) input.thinking = thinking;
+		if (model !== INHERIT) input.model = model;
+		if (thinking !== INHERIT) input.thinking = thinking;
 	});
 
 	pi.registerCommand("subagent-models", {

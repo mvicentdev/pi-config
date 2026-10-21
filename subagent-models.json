@@ -11,6 +11,10 @@
     "worker": {
       "model": "inherit",
       "thinking": "medium"
+    },
+    "verifier": {
+      "model": "inherit",
+      "thinking": "high"
     }
   },
   "openai-codex": {
@@ -25,6 +29,10 @@
     "worker": {
       "model": "gpt-6-sol",
       "thinking": "medium"
+    },
+    "verifier": {
+      "model": "inherit",
+      "thinking": "high"
     }
   },
   "opencode-go": {
@@ -38,6 +46,10 @@
     },
     "worker": {
       "model": "deepseek-v4.1-flash",
+      "thinking": "high"
+    },
+    "verifier": {
+      "model": "glm-5.3-flash",
       "thinking": "high"
     }
   }

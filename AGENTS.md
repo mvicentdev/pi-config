@@ -31,8 +31,9 @@
   than one, and before launching a subagent or a worker in a visible terminal; its IDE adapters in
   `~/.pi/agent/docs/orchestration/` are read only when that situation arrives.
 - The pi roles carry the model tiers: `explorer` and `researcher` are the cheap reader tier,
-  `worker` the mid writer tier, `verifier` the fresh check; each role's model is set in its file in
-  `~/.pi/agent/agents/`, bound to the cheapest tier that can do the role and raised only after that
+  `worker` the mid writer tier, `verifier` the fresh check; each role's model and thinking live only in
+  `subagent-models.json`, set with `/subagent-models`, so a call to `Agent` leaves `model` and `thinking`
+  out; each role is bound to the cheapest tier that can do the role and raised only after that
   role has failed its task twice, never preventively. The main loop orchestrates; it never carries a
   task a subagent's tier could carry.
 - `steer_subagent` reaches a running subagent, `Agent` with `resume` continues a finished one, and

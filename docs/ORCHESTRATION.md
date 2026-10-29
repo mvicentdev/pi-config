@@ -7,9 +7,8 @@ configuration name its tools and models; this file names none.
 
 - The main loop orchestrates: it keeps the plan, every decision, the synthesis and the conversation with
   the user, and hands each subagent a self-contained prompt with an exact boundary.
-- A development with a plan or spec agreed in the conversation is always orchestrated: the main loop
-  keeps the conversation and the plan, and each change goes to a worker in its own worktree; a change
-  without one is worked inline.
+- Work inline by default, and when in doubt; a task's size, file count or the price of the main loop's
+  model never justifies a delegation alone.
 - Delegate what would fill the main context without need, and work inline otherwise: deciding or
   verifying inline takes one parallel batch of at most three calls and about 10k tokens; past that, or
   past about five sequential lookups, one read-only explorer maps it and returns about 2k tokens with
@@ -18,9 +17,10 @@ configuration name its tools and models; this file names none.
   instead of repeating its content.
 - One subagent, one question or one change: split broader work across several runs, launch each
   distinct task once, and launch the independent ones together.
-- Without a plan, the main loop writes inline whatever the file count; it delegates a writer only for
-  independent units on disjoint files launched together, or when its own context runs short, and that
-  writer also does the reading that prepares its write.
+- The main loop writes inline, with or without an agreed plan, and a unit of about 100 changed lines or
+  fewer always stays inline, because writing it costs less than starting a worker. It delegates a writer
+  only for independent units of more than that on disjoint files launched together, or when its own
+  context runs short, and that writer also does the reading that prepares its write.
 
 ## The prompt
 

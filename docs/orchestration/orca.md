@@ -7,6 +7,13 @@ Adapter for [Orca](https://github.com/stablyai/orca); the rules live in `../ORCH
   `"${ORCA_CLI_COMMAND:-orca}" terminal show --terminal "$ORCA_TERMINAL_HANDLE" --json` returns
   `"ok": true` and a `result.terminal.handle` equal to `ORCA_TERMINAL_HANDLE`. Without `--terminal`
   the command fails inside Orca, and with an empty handle it returns another terminal.
+  A structured Orca session has no `ORCA_TERMINAL_HANDLE`; there the check passes when
+  `ORCA_STRUCTURED_SESSION=1` and `"${ORCA_CLI_COMMAND:-orca}" status --json` returns
+  `result.caller.live: true`.
+- Inside Orca every subagent is a supervised Orca worker, so the user follows its progress in Orca;
+  the native `Agent` stays unused there. Start it with `orchestration worker-start --spec … --agent claude
+  --model <the role's model in subagent-models.json> --effort <its thinking>`, and read its messages with
+  `orchestration check --run <run_id>`, acknowledging each delivery with `--ack`.
 - Each watched worker runs in its own Orca terminal. The guide the binary serves
   (`orca skills get orchestration`) is the only account of its commands; the `orca-cli` and
   `orchestration` skills apply only here.

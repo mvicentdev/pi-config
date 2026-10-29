@@ -17,14 +17,30 @@ Adapter for [T3 Code](https://github.com/pingdotgg/t3code); the rules live in `.
   `t3 --help` does not list `acp-mcp-call`. A harness that exposes the tools natively
   (`mcp__t3-code__<tool>`) calls them directly with the same names and arguments, and their
   descriptions are the account of each argument.
-- Before each launch, read the providers and models with `orchestrator_capabilities`. Omit `target` so
-  the worker runs the caller's provider; to change the model, keep the caller's `providerInstanceId`.
+- Every subagent is a child thread, so the user sees the delegated work. Start each pi role with
+  `delegate_task` and these fields:
+
+  ```json
+  {"task":"Read ~/.pi/agent/agents/<role>.md and follow it as your role. <prompt>",
+   "title":"<role>: <task>", "role":"<t3 role>", "mode":"wait",
+   "target":{"providerInstanceId":"pi","model":"<model>","options":{"thinking":"<thinking>"}}}
+  ```
+
+  `<model>` and `<thinking>` come from the role's entry in `~/.pi/agent/subagent-models.json`, under
+  the provider of the caller's model. `<t3 role>` is `research` for `explorer` and `researcher`,
+  `implementation` for `worker` and `review` for `verifier`. T3 Code does not apply the role file's
+  tool limits, so the role file's text alone keeps a reader read-only.
+- Use `"mode":"wait"` when the next step needs one result; `summary` holds it. Run parallel subagents
+  with `"mode":"async"`, then wait on each `childThreadId` as below.
+- Before each launch, read the providers and models with `orchestrator_capabilities`. For a watched worker,
+  omit `target` so it runs the caller's provider; to change the model, keep the caller's `providerInstanceId`.
 - Start a watched worker with `delegate_task` and
   `{"task":"<prompt>","title":"<task>","mode":"async","clientRequestId":"<task-id>"}`; it becomes a
-  child thread of the caller. Keep its `taskId` and `childThreadId`. A writer gets its own checkout
-  with `"isolation":"worktree"`: T3 Code creates `~/.t3/worktrees/<project>/t3-<id>` on branch
-  `t3/<id>` from the caller's last local commit, without uncommitted edits. A thread outside a git
-  project, such as a scratch thread, cannot use this isolation.
+  child thread of the caller. Keep its `taskId` and `childThreadId`. A writer works in the checkout
+  that `../ORCHESTRATION.md` has the main loop create: the prompt names its absolute path, and the
+  worker reads and edits by absolute path and runs each command as `cd <checkout> && <command>`.
+  Leave `isolation` out: T3 Code's own isolation names the checkout and the branch by an id
+  (`t3-<id>`, `t3/<id>`).
 - Wait inside the turn with `t3_thread_wait` and `{"threadId":"<childThreadId>","timeoutMs":600000}`.
   Read the answer with `task_status` and `{"taskId":"<taskId>"}`: `workState` `result_available` marks
   a settled worker, and `summary` holds its answer.
@@ -39,6 +55,6 @@ Adapter for [T3 Code](https://github.com/pingdotgg/t3code); the rules live in `.
   `taskId` and `childThreadId`.
 - `t3_thread_organize` with `{"threadId":"<childThreadId>","action":"archive"}` releases a settled
   worker, and `task_cancel` stops a running one. Archiving keeps the worker's checkout and branch:
-  remove them with `git worktree remove <path>` and `git branch -D t3/<id>`.
+  remove them with the repository's cleanup command.
 - An unsupervised handoff that the user asks for is a top-level thread: start it with
   `t3_thread_launch` and an explicit `workspaceStrategy`.

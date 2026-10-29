@@ -33,6 +33,10 @@ configuration name its tools and models; this file names none.
 
 - Readers run in parallel and in the background; writers run in parallel only on disjoint files, or each
   in its own checkout once the user has approved it.
+- A writer's checkout is a worktree the main loop creates before the launch, with the repository's own
+  worktree command when it ships one. Its branch and directory must carry a name that says what the
+  work is: the name the repository's branch rules give it, checked with the repository's validator when
+  it ships one; without rules, `<conventional-commit-type>/<concept>-<operation>` in kebab-case.
 - A worker isolated in its own checkout or in an agentic IDE runs the same harness as the main loop that
   launches it.
 - Five subagents at most at a time; launch the next ready task as soon as one finishes, without waiting
@@ -47,7 +51,8 @@ configuration name its tools and models; this file names none.
 ## Agentic IDE
 
 A watched worker is one the user wants to follow in its own pane; it runs in the agentic IDE that hosts
-the main loop. Every other subagent runs in the session. Delegation to a watched worker is supervised;
+the main loop. Every other subagent runs in the session, unless the host adapter runs every subagent as
+a visible child thread, as T3 Code does, or as a supervised worker, as Orca does. Delegation to a watched worker is supervised;
 an unsupervised handoff happens only when the user asks for one. Each supported IDE — Orca, Paseo, cmux
 and T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`.
 
@@ -63,8 +68,9 @@ and T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`.
    its prompt or spec in the same step.
 6. Verify each settled worker as the Verifying section below says, then report one line per task with
    its outcome, its evidence and the IDs the IDE gives it.
-7. Keep each settled worker open so the user can read its answer, and release it once the user is done
-   with it.
+7. Once a worker's result is accepted — merged, or its answer taken — release it at once: close its pane,
+   remove its checkout, branch, stack and prompt file. A follow-up goes to a new worker, never to a
+   released one.
 
 ## Verifying
 

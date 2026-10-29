@@ -9,7 +9,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const REMINDER =
-	"<system-reminder>Apply the Feedback rules in AGENTS.md: at most three lines unless asked for more, result first, plain prose, no recap and no follow-up offers.</system-reminder>";
+	"<system-reminder>Reply in Castilian Spanish and apply the Feedback rules in AGENTS.md: the first word is the answer, never the subject of the question; no sentence repeats another; at most 40 words of prose for a question and three lines otherwise, plain words over inline code.</system-reminder>";
 
 export default function feedbackReminder(pi: ExtensionAPI) {
 	pi.on("context", (event) => {

@@ -50,18 +50,19 @@ configuration name its tools and models; this file names none.
 
 ## Agentic IDE
 
-A watched worker is one the user wants to follow in its own pane; it runs in the agentic IDE that hosts
-the main loop. Every other subagent runs in the session, unless the host adapter runs every subagent as
-a visible child thread, as T3 Code does, or as a supervised worker, as Orca does. Delegation to a watched worker is supervised;
-an unsupervised handoff happens only when the user asks for one. Each supported IDE — Orca, Paseo, cmux
-and T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`.
+The host is the agentic IDE that runs the main loop. Each supported host — Orca, Paseo, cmux and
+T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`. A host worker is a subagent that the
+host runs, so the user traces it in the IDE. In Orca and T3 Code every subagent is a host worker,
+whatever its role. In Paseo and cmux only a watched worker, one the user asks to follow in its own
+pane, is a host worker. Delegation to a host worker is supervised, and an unsupervised handoff happens
+only when the user asks for one.
 
-1. Detect the host IDE: run the Detection check of each adapter in `~/.pi/agent/docs/orchestration/`.
+1. Before the first subagent of a session, detect the host: run the Detection check of each adapter.
    The adapter whose check passes is the host. An IDE started from another IDE's terminal inherits
-   its variables, so more than one check can pass; then ask the user which IDE hosts the watched
-   worker. When no check passes, the work goes to in-session subagents.
-2. Read the rest of that adapter before the first watched worker; it alone names the IDE's commands.
-3. Start each watched worker with a self-contained prompt.
+   its variables, so more than one check can pass. Then ask the user which IDE hosts the work. When
+   no check passes, every subagent runs in the session.
+2. Read the rest of that adapter before the first host worker. It alone names the IDE's commands.
+3. Start each host worker with a self-contained prompt.
 4. Wait inside the turn until every worker has settled or the user needs to decide something; a
    timed-out or empty wait is a checkpoint, so wait again at once.
 5. Answer a worker's question in its own thread; an answer that changes the agreed design goes into

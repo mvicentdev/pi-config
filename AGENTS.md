@@ -66,5 +66,5 @@ Act as the user's candid adviser. The user acts on your verdicts, so each one na
 ## Orchestration
 
 - Open `~/.pi/agent/docs/ORCHESTRATION.md` before a task that reads more than a few files or edits more than one, and before you launch a subagent or a visible worker.
-- Roles: `explorer` and `researcher` read on the cheap tier, `worker` writes on the mid tier, and `verifier` checks with a fresh context. `subagent-models.json`, set with `/subagent-models`, holds each role's model and thinking, so a call to `Agent` leaves them out. Raise a role's tier only after it fails its task twice.
+- Roles: `explorer` and `researcher` read on the cheap tier, `worker` writes on the mid tier, and `verifier` checks on the top tier with a fresh context. `subagent-models.json`, set with `/subagent-models`, holds each role's model and thinking, so a call to `Agent` leaves them out. Raise a role's tier only after it fails its task twice.
 - Inside Orca or T3 Code, every subagent is a host worker, so the user traces it in the IDE. Before the first one, run each adapter's Detection check in `~/.pi/agent/docs/orchestration/`.

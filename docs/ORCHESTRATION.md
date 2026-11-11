@@ -7,20 +7,19 @@ configuration name its tools and models; this file names none.
 
 - The main loop orchestrates: it keeps the plan, every decision, the synthesis and the conversation with
   the user, and hands each subagent a self-contained prompt with an exact boundary.
-- Work inline by default, and when in doubt; a task's size, file count or the price of the main loop's
-  model never justifies a delegation alone.
-- Delegate what would fill the main context without need, and work inline otherwise: deciding or
-  verifying inline takes one parallel batch of at most three calls and about 10k tokens; past that, or
+- Work inline by default, and when in doubt. The price of the main loop's model never justifies a
+  delegation alone.
+- Delegate what would fill the main context without need, and work inline otherwise. Deciding or
+  verifying inline takes one parallel batch of at most three calls and about 10k tokens. Past that, or
   past about five sequential lookups, one read-only explorer maps it and returns about 2k tokens with
-  path:line evidence. When workers will build on that map, the explorer also saves it as a markdown notes
-  file in a temporary directory outside the repository, and each worker prompt points to that file
-  instead of repeating its content.
+  path:line evidence. When workers will build on that map, the main loop saves it as a notes file in
+  the work's temporary directory. Each worker prompt points to that file.
 - One subagent, one question or one change: split broader work across several runs, launch each
   distinct task once, and launch the independent ones together.
-- The main loop writes inline, with or without an agreed plan, and a unit of about 100 changed lines or
-  fewer always stays inline, because writing it costs less than starting a worker. It delegates a writer
-  only for independent units of more than that on disjoint files launched together, or when its own
-  context runs short, and that writer also does the reading that prepares its write.
+- The main loop writes inline a task of one unit that fits in its context with room to spare.
+- The main loop coordinates a task of several units, or one that would fill more than about half of
+  its context. It plans the units, hands each one to its own writer and verifies each result.
+- A writer also does the reading that prepares its write.
 
 ## The prompt
 
@@ -28,6 +27,9 @@ configuration name its tools and models; this file names none.
   lines, what changes and what must not, the paths of the instructions and skills to read before
   working — the paths, never a summary of them —, the command that proves the work and the report
   format.
+- A subagent that runs in the session hands back its full report. A host worker whose host carries
+  only a summary writes it to a report file. The prompt names that path, in the work's temporary
+  directory outside the repository, and the main loop reads the file itself.
 
 ## In parallel
 
@@ -44,17 +46,20 @@ configuration name its tools and models; this file names none.
 - Wait for the completion notice instead of polling: steer a running subagent only when its boundary
   changes or it needs a fact just learned, resume a finished one to follow up in its own context, and
   never launch a second one for the same task.
-- Once the work lands or is discarded, and before reporting it done, remove every checkout, branch,
-  notes file, container, volume and image built for it, with the repository's own cleanup command when it ships
-  one; only what still holds unshipped work stays, and the report names it.
+- Once the work lands or is discarded, and before reporting it done, remove what was built for it.
+  That covers every checkout, branch, notes file, report file, container, volume and image, with the repository's
+  own cleanup command when it ships one. Only what still holds unshipped work stays, and the report
+  names it.
 
 ## Agentic IDE
 
 The host is the agentic IDE that runs the main loop. Each supported host — Orca, Paseo, cmux and
 T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`. A host worker is a subagent that the
-host runs, so the user traces it in the IDE. In Orca and T3 Code every subagent is a host worker,
-whatever its role. In Paseo and cmux only a watched worker, one the user asks to follow in its own
-pane, is a host worker. Delegation to a host worker is supervised, and an unsupervised handoff happens
+host runs, so the user traces it in the IDE. In Orca every writer is a host worker and every
+reader runs in the session. In T3 Code every subagent is a host worker, whatever its role. In Paseo
+and cmux only a watched worker, one the user asks to follow in its own pane, is a host worker.
+
+Delegation to a host worker is supervised, and an unsupervised handoff happens
 only when the user asks for one.
 
 1. Before the first subagent of a session, detect the host: run the Detection check of each adapter.
@@ -63,15 +68,15 @@ only when the user asks for one.
    no check passes, every subagent runs in the session.
 2. Read the rest of that adapter before the first host worker. It alone names the IDE's commands.
 3. Start each host worker with a self-contained prompt.
-4. Wait inside the turn until every worker has settled or the user needs to decide something; a
-   timed-out or empty wait is a checkpoint, so wait again at once.
+4. Wait the way the adapter names until every worker has settled or the user needs to decide
+   something.
 5. Answer a worker's question in its own thread; an answer that changes the agreed design goes into
    its prompt or spec in the same step.
 6. Verify each settled worker as the Verifying section below says, then report one line per task with
    its outcome, its evidence and the IDs the IDE gives it.
-7. Once a worker's result is accepted — merged, or its answer taken — release it at once: close its pane,
-   remove its checkout, branch, stack and prompt file. A follow-up goes to a new worker, never to a
-   released one.
+7. Once a worker's result is accepted — merged, or its answer taken — release it at once the way the
+   adapter names, and remove its checkout, branch, stack and prompt file. A follow-up goes to the same
+   worker when the host can reopen it, and to a new worker otherwise.
 
 ## Verifying
 
@@ -82,5 +87,7 @@ only when the user asks for one.
   credentials, data loss, migrations, public contracts or anything unclear also need a fresh verifier
   without the writer's context, run as the `code-review` skill says once the change is committed locally. Whatever the tier, re-run at least one reported command yourself.
 - A writer that runs on a small model or at low effort raises its verification tier by one.
-- Verifier blockers get one correction batch that fixes them all, then one recheck limited to those
-  blockers; blockers still open go to the user as a decision, never into another correction loop.
+- The main loop checks each verifier finding against the request and the code. A finding that breaks
+  the request is a blocker, and the report names each discarded finding with its reason.
+- Blockers get one correction batch that fixes them all, then one recheck limited to those blockers.
+  Blockers still open go to the user as a decision, never into another correction loop.

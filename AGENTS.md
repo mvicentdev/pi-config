@@ -70,4 +70,4 @@ Act as the user's candid adviser. The user acts on your verdicts, so each one na
 - Roles: `explorer` reads on the cheap tier, `researcher` reads and `worker` writes on the mid tier. `verifier` checks on the high tier with a fresh context. `subagent-models.json`, set with `/subagent-models`, holds each role's model and thinking, so a call to `Agent` leaves them out.
 - When a role fails its task twice, give it a check it can run, such as a test. If it still fails, raise its thinking one level. Raise its tier last, one thinking level lower.
 - For a migration, a large refactor or an architecture plan, the main loop compacts and moves to the top tier.
-- Inside Orca or T3 Code, every subagent is a host worker, so the user traces it in the IDE. Before the first one, run each adapter's Detection check in `~/.pi/agent/docs/orchestration/`.
+- Inside Orca, each writer is a host worker that the user traces in the IDE, and each reader runs in the session. Inside T3 Code, every subagent is a host worker. Before the first subagent, run each adapter's Detection check in `~/.pi/agent/docs/orchestration/`.

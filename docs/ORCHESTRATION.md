@@ -13,12 +13,14 @@ configuration name its tools and models; this file names none.
   verifying inline takes one parallel batch of at most three calls and about 10k tokens. Past that, or
   past about five sequential lookups, one read-only explorer maps it and returns about 2k tokens with
   path:line evidence. When workers will build on that map, the main loop saves it as a notes file in
-  the work's temporary directory. Each worker prompt points to that file.
+  the work's temporary directory. Each worker prompt points to that file. A write makes the map
+  stale: after each one, the main loop updates the notes file or drops it before the next launch.
 - One subagent, one question or one change: split broader work across several runs, launch each
   distinct task once, and launch the independent ones together.
 - The main loop writes inline a task of one unit that fits in its context with room to spare.
 - The main loop coordinates a task of several units, or one that would fill more than about half of
-  its context. It plans the units, hands each one to its own writer and verifies each result.
+  its context. It plans the units, hands each independent one to its own writer and verifies each
+  result. Units that depend on one another go to one writer, resumed for each next unit.
 - A writer also does the reading that prepares its write.
 
 ## The prompt
@@ -26,15 +28,17 @@ configuration name its tools and models; this file names none.
 - It carries what is already known, so the subagent never searches for it again: the exact paths and
   lines, what changes and what must not, the paths of the instructions and skills to read before
   working — the paths, never a summary of them —, the command that proves the work and the report
-  format.
+  format. It tells the subagent to stop and report any fact that breaks the plan.
 - A subagent that runs in the session hands back its full report. A host worker whose host carries
   only a summary writes it to a report file. The prompt names that path, in the work's temporary
   directory outside the repository, and the main loop reads the file itself.
 
 ## In parallel
 
-- Readers run in parallel and in the background; writers run in parallel only on disjoint files, or each
-  in its own checkout once the user has approved it.
+- Readers run in parallel and in the background, and one writer runs at a time. Writers run in
+  parallel only on disjoint files, or each in its own checkout once the user has approved it. Before
+  that launch, the main loop writes to the notes file the decisions they share: names, interfaces and
+  form.
 - A writer's checkout is a worktree the main loop creates before the launch, with the repository's own
   worktree command when it ships one. Its branch and directory must carry a name that says what the
   work is: the name the repository's branch rules give it, checked with the repository's validator when
@@ -46,6 +50,8 @@ configuration name its tools and models; this file names none.
 - Wait for the completion notice instead of polling: steer a running subagent only when its boundary
   changes or it needs a fact just learned, resume a finished one to follow up in its own context, and
   never launch a second one for the same task.
+- A subagent that finds a fact that breaks the plan stops and reports it, as its prompt tells it to.
+  The main loop then corrects the notes file and steers each running subagent the fact affects.
 - Once the work lands or is discarded, and before reporting it done, remove what was built for it.
   That covers every checkout, branch, notes file, report file, container, volume and image, with the repository's
   own cleanup command when it ships one. Only what still holds unshipped work stays, and the report
@@ -87,6 +93,8 @@ only when the user asks for one.
   credentials, data loss, migrations, public contracts or anything unclear also need a fresh verifier
   without the writer's context, run as the `code-review` skill says once the change is committed locally. Whatever the tier, re-run at least one reported command yourself.
 - A writer that runs on a small model or at low effort raises its verification tier by one.
+- When two reports contradict each other, the main loop settles the point against the code before it
+  goes on.
 - The main loop checks each verifier finding against the request and the code. A finding that breaks
   the request is a blocker, and the report names each discarded finding with its reason.
 - Blockers get one correction batch that fixes them all, then one recheck limited to those blockers.

@@ -1,8 +1,8 @@
 /** Panel compacto bajo el editor; ↓ con el prompt vacío o Ctrl+Shift+R elige un agente y abre el visor de pi-subagents. */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Editor, isKeyRelease, matchesKey, type Component, type TUI } from "@earendil-works/pi-tui";
-import { ConversationViewer } from "@tintinweb/pi-subagents/src/ui/conversation-viewer.ts";
-import type { AgentRecord } from "@tintinweb/pi-subagents/src/types.ts";
+import { ConversationViewer } from "../../vendor/pi-subagents/src/ui/conversation-viewer.ts";
+import type { AgentRecord } from "../../vendor/pi-subagents/src/types.ts";
 import { type Theme, render } from "./panel.ts";
 import { LINGER_MS, Roster, type Status } from "./roster.ts";
 

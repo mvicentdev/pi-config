@@ -68,7 +68,7 @@ test("panel: carga, ancho, caché, navegación, rendimiento y limpieza", async (
 		return agent;
 	};
 	const fixture = mkdtempSync(join(tmpdir(), "panel-baseline-"));
-	const dependency = fileURLToPath(new URL("../../node_modules/@tintinweb/pi-subagents/src/ui/", import.meta.url));
+	const dependency = fileURLToPath(new URL("../../vendor/pi-subagents/src/ui/", import.meta.url));
 	const bridge = join(fixture, "index.ts");
 	writeFileSync(bridge, `import { AgentWidget } from ${JSON.stringify(join(dependency, "agent-widget.ts"))};
 import { FleetList } from ${JSON.stringify(join(dependency, "fleet-list.ts"))};

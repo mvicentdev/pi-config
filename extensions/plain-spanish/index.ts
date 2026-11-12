@@ -52,6 +52,8 @@ const SEVERITY_LABELS: Readonly<Record<"hard" | "soft", string>> = { hard: "bloq
 
 // PHP no figura en la tabla del paquete. Sin esto, el motor revisaría el código entero como prosa.
 const PHP: PathClassification = { kind: "slash-source", sourceDialect: "general" };
+// El código copiado de terceros conserva sus comentarios, que no siguen estas reglas.
+const VENDORED: PathClassification = { kind: "prose-file", sourceDialect: "general", skipped: true };
 
 interface SessionState {
 	config: SteConfig;
@@ -119,6 +121,7 @@ function formatViolations(heading: string, violations: readonly Violation[]): st
 }
 
 function classify(path: string): PathClassification {
+	if (path.split("/").includes("vendor")) return VENDORED;
 	if (path.toLowerCase().endsWith(".php")) return PHP;
 	return classifyPath(path);
 }

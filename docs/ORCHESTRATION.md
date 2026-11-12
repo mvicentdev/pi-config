@@ -35,10 +35,10 @@ configuration name its tools and models; this file names none.
 
 ## In parallel
 
-- Readers run in parallel and in the background, and one writer runs at a time. Writers run in
-  parallel only on disjoint files, or each in its own checkout once the user has approved it. Before
-  that launch, the main loop writes to the notes file the decisions they share: names, interfaces and
-  form.
+- Readers run in parallel and one writer runs at a time. Readers run in the background unless the
+  host's adapter sets the foreground. Writers run in parallel only on disjoint files, or each in its
+  own checkout once the user has approved it. Before that launch, the main loop writes to the notes
+  file the decisions they share: names, interfaces and form.
 - A writer's checkout is a worktree the main loop creates before the launch, with the repository's own
   worktree command when it ships one. Its branch and directory must carry a name that says what the
   work is: the name the repository's branch rules give it, checked with the repository's validator when

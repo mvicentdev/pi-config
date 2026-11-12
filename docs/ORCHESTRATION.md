@@ -55,9 +55,9 @@ configuration name its tools and models; this file names none.
 
 The host is the agentic IDE that runs the main loop. Each supported host — Orca, Paseo, cmux and
 T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`. A host worker is a subagent that the
-host runs, so the user traces it in the IDE. In Orca every writer is a host worker and every
-reader runs in the session. In T3 Code every subagent is a host worker, whatever its role. In Paseo
-and cmux only a watched worker, one the user asks to follow in its own pane, is a host worker.
+host runs, so the user traces it in the IDE. In T3 Code every subagent is a host worker, whatever
+its role. In Orca, Paseo and cmux only a watched worker, one the user asks to follow in its own
+pane, is a host worker.
 
 Delegation to a host worker is supervised, and an unsupervised handoff happens
 only when the user asks for one.

@@ -58,15 +58,6 @@ export interface SubagentsSettings {
    */
   backgroundByDefault?: boolean;
   /**
-   * Master switch for the schedule subagent feature. Defaults to `true`.
-   * When `false`: the `Agent` tool's `schedule` param + its guideline are
-   * stripped from the tool spec at registration (zero LLM-context cost), the
-   * scheduler doesn't bind to the session, and the `/agents → Scheduled jobs`
-   * menu entry is hidden. Schema-level removal applies at extension load
-   * (next pi session); runtime menu/runtime-fire short-circuit is immediate.
-   */
-  schedulingEnabled?: boolean;
-  /**
    * When true, the effective model of each subagent spawn is validated
    * against `enabledModels` from pi's settings — both global
    * (`<agentDir>/settings.json`) and project-local (`<cwd>/.pi/settings.json`),
@@ -157,7 +148,7 @@ export interface SubagentsSettings {
    *   - `all`: show every agent (foreground + background).
    *   - `background`: hide foreground agents — they already render inline as the
    *     Agent tool result, so the widget would otherwise double-render them
-   *     (#118); everything else (background, queued, scheduled, RPC) stays.
+   *     (#118); everything else (background, queued, RPC) stays.
    *   - `off`: hide the widget entirely.
    * Defaults to `background`. Pure-UI and applied live (toggling refreshes the
    * widget).
@@ -194,30 +185,9 @@ export interface SubagentsSettings {
    * worktrees that *cannot* be created; this is the user declining one, and
    * throwing would reject exactly the calls that the `isolation: "off"` value
    * exists to tolerate. Enforced below the tool boundary, so it also covers the
-   * scheduler and the unvalidated cross-extension RPC path.
+   * unvalidated cross-extension RPC path.
    */
   worktreeIsolation?: boolean;
-  /**
-   * Master switch for scripted workflows. Defaults to `true`.
-   *
-   * Off is not a soft hide: the `SubagentWorkflow` tool is never registered, so
-   * the model is not told it exists and cannot call it, the `/agents`
-   * Workflows entry is hidden, and `--subagents-workflow-file` is refused.
-   *
-   * Absent is not the same as `true`. Unset means *auto*: on, but yielding to
-   * another extension that already offers a workflow tool, because two
-   * orchestrators in one tool spec is a worse default than none — the model
-   * has to guess which to call, and pays for both descriptions to find out.
-   * Setting it explicitly pins the answer in both directions: `true` keeps
-   * ours whatever else is loaded, `false` is off regardless. See
-   * `resolveWorkflowCollisions` in index.ts.
-   *
-   * Read once at extension init, before registration, so flipping it in
-   * `/agents → Settings` takes effect on the next pi session — the same
-   * contract `schedulingEnabled` has, and for the same reason: a tool spec is
-   * fixed once pi has it.
-   */
-  workflowsEnabled?: boolean;
   /**
    * Hard ceiling on nested subagent delegation, counted from the main session:
    * main = 0, its subagents = 1, their children = 2. Defaults to `2`; `0` or `1`
@@ -314,7 +284,6 @@ export interface SettingsAppliers {
   setGraceTurns: (n: number) => void;
   setDefaultJoinMode: (mode: JoinMode) => void;
   setBackgroundByDefault: (b: boolean) => void;
-  setSchedulingEnabled: (b: boolean) => void;
   setScopeModels: (enabled: boolean) => void;
   setStrictAgentFiles: (b: boolean) => void;
   setDisableDefaultAgents: (b: boolean) => void;
@@ -325,7 +294,6 @@ export interface SettingsAppliers {
   setWidgetMode: (mode: WidgetMode) => void;
   setOutputTranscript: (b: boolean) => void;
   setWorktreeIsolation: (b: boolean) => void;
-  setWorkflowsEnabled: (b: boolean) => void;
   setMaxSubagentDepth: (n: number) => void;
   setFallbackSubagent: (v: string | undefined) => void;
   setReportUsage: (b: boolean) => void;
@@ -399,9 +367,6 @@ function sanitize(raw: unknown): SubagentsSettings {
   if (typeof r.backgroundByDefault === "boolean") {
     out.backgroundByDefault = r.backgroundByDefault;
   }
-  if (typeof r.schedulingEnabled === "boolean") {
-    out.schedulingEnabled = r.schedulingEnabled;
-  }
   if (typeof r.scopeModels === "boolean") {
     out.scopeModels = r.scopeModels;
   }
@@ -447,9 +412,6 @@ function sanitize(raw: unknown): SubagentsSettings {
   }
   if (typeof r.viewerMarkdown === "string" && VALID_VIEWER_MARKDOWN_MODES.has(r.viewerMarkdown)) {
     out.viewerMarkdown = r.viewerMarkdown as ViewerMarkdownMode;
-  }
-  if (typeof r.workflowsEnabled === "boolean") {
-    out.workflowsEnabled = r.workflowsEnabled;
   }
   if (r.fallbackSubagent === false) {
     // The only non-string spelling worth accepting: a boolean would otherwise be
@@ -521,7 +483,6 @@ export function applySettings(s: SubagentsSettings, appliers: SettingsAppliers):
   if (typeof s.fallbackSubagent === "string") appliers.setFallbackSubagent(s.fallbackSubagent);
   if (s.defaultJoinMode) appliers.setDefaultJoinMode(s.defaultJoinMode);
   if (typeof s.backgroundByDefault === "boolean") appliers.setBackgroundByDefault(s.backgroundByDefault);
-  if (typeof s.schedulingEnabled === "boolean") appliers.setSchedulingEnabled(s.schedulingEnabled);
   if (typeof s.scopeModels === "boolean") appliers.setScopeModels(s.scopeModels);
   if (typeof s.strictAgentFiles === "boolean") appliers.setStrictAgentFiles(s.strictAgentFiles);
   if (typeof s.disableDefaultAgents === "boolean") appliers.setDisableDefaultAgents(s.disableDefaultAgents);
@@ -536,7 +497,6 @@ export function applySettings(s: SubagentsSettings, appliers: SettingsAppliers):
   if (typeof s.showCost === "boolean") appliers.setShowCost(s.showCost);
   if (typeof s.showModel === "boolean") appliers.setShowModel(s.showModel);
   if (s.viewerMarkdown) appliers.setViewerMarkdown(s.viewerMarkdown);
-  if (typeof s.workflowsEnabled === "boolean") appliers.setWorkflowsEnabled(s.workflowsEnabled);
 }
 
 /**

@@ -6,15 +6,16 @@
     "@amaster.ai/pi-attachments": "^0.1.18",
     "@dietrichgebert/ponytail": "github:DietrichGebert/ponytail",
     "@ff-labs/pi-fff": "^0.11.0",
-    "@sinclair/typebox": "^0.34.49",
     "agent-simple-english": "0.8.0",
     "awesome-pi-themes": "^1.2.13",
-    "croner": "^10.0.1",
     "nanoid": "^5.1.16",
     "pi-btw": "^0.6.0",
     "pi-context-view": "^0.6.0",
-    "pi-mermaid": "^0.3.0",
-    "typebox": "^1.3.7"
+    "pi-mermaid": "^0.3.0"
+  },
+  "peerDependencies": {
+    "@sinclair/typebox": "*",
+    "typebox": "*"
   },
   "pi": {
     "extensions": [

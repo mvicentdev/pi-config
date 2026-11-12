@@ -1,10 +1,8 @@
 /**
  * xml.ts — escaping for the `<task-notification>` payloads.
  *
- * A module of its own because both notification builders need it and they sit
- * on opposite sides of a dependency edge: the agent one lives in `index.ts`,
- * which imports `workflow/task.ts`, so the workflow one cannot reach back for
- * it without a cycle.
+ * A module of its own so the escaping can be shared and tested apart from
+ * `index.ts`.
  */
 
 /** Escape XML special characters to prevent injection in structured notifications. */

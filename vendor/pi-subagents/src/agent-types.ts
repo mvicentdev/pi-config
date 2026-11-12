@@ -43,7 +43,7 @@ export const NO_FALLBACK = "none";
  * `subagents.json` (`fallbackSubagent`).
  *
  * Module state rather than an index.ts closure because every caller-supplied
- * spawn path needs it — the Agent tool, the scheduler, and cross-extension RPC.
+ * spawn path needs it — the Agent tool and cross-extension RPC.
  */
 let fallbackSubagent: string | undefined;
 
@@ -160,7 +160,7 @@ export type SpawnTypeResolution =
 /**
  * Resolve a caller-supplied agent type against a registry, applying the
  * `fallbackSubagent` policy. The single decision point for every caller-supplied
- * spawn — the Agent tool, the scheduler, cross-extension RPC, and the nested
+ * spawn — the Agent tool, cross-extension RPC, and the nested
  * tools — so a type that fails here never reaches `runAgent`, where `getConfig`
  * would silently substitute general-purpose.
  *

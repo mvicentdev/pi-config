@@ -1,16 +1,14 @@
 # Skills
 
-Global skills live in `~/.agents/skills/` and are managed with the [skills.sh](https://skills.sh)
-CLI through `npx`. `~/.agents/.skill-lock.json` records the source of each one.
+Global skills live in `skills/`, beside the `AGENTS.md` that points to this file, one directory per
+skill.
+The file `.sources` in that directory records the source of each skill that has one.
 
-- `npx skills ls -g` lists every global skill with its source. A skill marked `local` was written by
-  hand; the CLI never updates it.
-- `npx skills update <name> -g -y` updates one skill from its source; `npx skills update -g -y`
-  updates all of them.
-- `npx skills add <owner/repo> -g -s <name> -y` installs one skill from a repository.
-- `npx skills remove <name> -g -y` removes it and its links in every agent.
-- Always pass `-g`: without it the CLI works on the project in the current directory.
-- Never edit a skill that has a source: the next update overwrites it. Write the change as a
-  `local` skill instead.
-- After an update, report each skill updated with its source; a skill that failed, with the
-  CLI's output.
+- Install or update a skill only when the user asks. Copy its directory from its source, unmodified,
+  and record the source in `.sources`.
+- A skill without a source was written by hand. Edit it in place.
+- Never edit a skill that has a source, because the next update overwrites it. Write the change as a
+  skill of your own instead.
+- Remove a skill by deleting its directory and its line in `.sources`.
+- After an update, report each skill updated with its source, and each one that failed with the
+  output.

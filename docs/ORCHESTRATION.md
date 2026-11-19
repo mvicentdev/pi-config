@@ -1,101 +1,89 @@
 # ORCHESTRATION.md
 
-How the main loop hands work to subagents, whatever the harness. Each harness's own instructions or
-configuration name its tools and models; this file names none.
+How the main loop coordinates subagents, whatever the harness. Skills hold the workflows. Each path
+below is relative to this file's directory.
 
-## Delegate or work inline
+## Roles
 
-- The main loop orchestrates: it keeps the plan, every decision, the synthesis and the conversation with
-  the user, and hands each subagent a self-contained prompt with an exact boundary.
-- Work inline by default, and when in doubt. The price of the main loop's model never justifies a
-  delegation alone.
-- Delegate what would fill the main context without need, and work inline otherwise. Deciding or
-  verifying inline takes one parallel batch of at most three calls and about 10k tokens. Past that, or
-  past about five sequential lookups, one read-only explorer maps it and returns about 2k tokens with
-  path:line evidence. When workers will build on that map, the main loop saves it as a notes file in
-  the work's temporary directory. Each worker prompt points to that file. A write makes the map
-  stale: after each one, the main loop updates the notes file or drops it before the next launch.
-- One subagent, one question or one change: split broader work across several runs, launch each
-  distinct task once, and launch the independent ones together.
+- The main loop keeps the plan, every decision, the synthesis and the conversation with the user.
+- `explorer` reads the code and `researcher` reads what lives outside it.
+- `worker` edits and tests, and `verifier` reviews with a fresh context.
+- A subagent does one bounded task in its own context and hands back a report.
+- A launch leaves the model and thinking to the configuration.
+
+## Skills
+
+- A skill defines the procedure: its steps, the file each step writes and where it stops for the user.
+- A skill with phases hands each one over through a file. The user reviews the research and the plan
+  before the implementation starts.
+- When a skill asks for a subagent of its own, the matching role runs it with the skill's instructions
+  in its prompt. Code reading goes to `explorer`, web reading to `researcher`, writing to `worker` and
+  review to `verifier`.
+- Without a skill, the work follows Delegate and Verify directly, and no phase file is written.
+
+## Delegate
+
+- Work inline by default, and when in doubt.
+- Deciding or verifying inline takes one parallel batch of at most three calls and about 10k tokens.
+- Past that, or past about five sequential lookups, one `explorer` maps it and returns path:line
+  evidence.
+- The work's temporary directory is a directory under `/tmp` named after the work.
+- The notes file lives there and holds what several subagents share: the map and the agreed decisions.
+  Each worker prompt points to it.
+- After each write, the main loop updates the notes file or drops it before the next launch.
+- One subagent takes one question or one change. Launch each distinct task once, and the independent
+  ones together.
 - The main loop writes inline a task of one unit that fits in its context with room to spare.
-- The main loop coordinates a task of several units, or one that would fill more than about half of
-  its context. It plans the units, hands each independent one to its own writer and verifies each
-  result. Units that depend on one another go to one writer, resumed for each next unit.
-- A writer also does the reading that prepares its write.
+- It coordinates a task of several units, or one that would fill more than about half of its context.
+  It plans the units, hands each independent one to its own `worker` and verifies each result.
+- Units that depend on one another go to one `worker`, resumed for each next unit.
+- A `worker` also does the reading that prepares its write.
 
-## The prompt
+## Prompt
 
-- It carries what is already known, so the subagent never searches for it again: the exact paths and
-  lines, what changes and what must not, the paths of the instructions and skills to read before
-  working — the paths, never a summary of them —, the command that proves the work and the report
-  format. It tells the subagent to stop and report any fact that breaks the plan.
-- A subagent that runs in the session hands back its full report. A host worker whose host carries
-  only a summary writes it to a report file. The prompt names that path, in the work's temporary
-  directory outside the repository, and the main loop reads the file itself.
+- It is self-contained and sets an exact boundary: what changes and what must not.
+- It carries what is already known: the exact paths and lines and the command that proves the work.
+- It names what the task adds to the role's report format.
+- It names the paths of the instructions and skills to read before working, never a summary of them.
+- It tells the subagent to stop and report any fact that breaks the plan.
+- A `verifier` prompt carries the plan's phase or the request, and the base of the diff.
+- A watched worker writes its report to a file. The prompt names that path, in the work's temporary
+  directory. The main loop reads the file itself.
 
-## In parallel
+## Parallel
 
-- Readers run in parallel and one writer runs at a time. Readers run in the background unless the
-  host's adapter sets the foreground. Writers run in parallel only on disjoint files, or each in its
-  own checkout once the user has approved it. Before that launch, the main loop writes to the notes
-  file the decisions they share: names, interfaces and form.
-- A writer's checkout is a worktree the main loop creates before the launch, with the repository's own
-  worktree command when it ships one. Its branch and directory must carry a name that says what the
-  work is: the name the repository's branch rules give it, checked with the repository's validator when
-  it ships one; without rules, `<conventional-commit-type>/<concept>-<operation>` in kebab-case.
-- A worker isolated in its own checkout or in an agentic IDE runs the same harness as the main loop that
-  launches it.
-- Five subagents at most at a time; launch the next ready task as soon as one finishes, without waiting
-  for the rest of the batch. A task is ready once every task it depends on has landed.
-- Wait for the completion notice instead of polling: steer a running subagent only when its boundary
-  changes or it needs a fact just learned, resume a finished one to follow up in its own context, and
-  never launch a second one for the same task.
-- A subagent that finds a fact that breaks the plan stops and reports it, as its prompt tells it to.
-  The main loop then corrects the notes file and steers each running subagent the fact affects.
+- The read-only roles run in parallel, in the background unless the host's adapter sets the foreground.
+- One `worker` runs at a time. Open `CHECKOUTS.md` before you launch workers in parallel or a `worker`
+  in its own checkout.
+- Five subagents at most run at a time. Launch a task once every task it depends on has landed.
+- Wait for the completion notice instead of polling.
+- Steer a subagent that runs in the background only when its boundary changes or it needs a fact just learned.
+- Resume a finished subagent to follow up in its own context. Each task gets one subagent.
+- When a subagent reports a fact that breaks the plan, the main loop corrects the notes file. It then
+  steers each background subagent the fact affects.
+
+## Verify
+
+- A report states intent, not outcome. Read the diff and check it against the request before
+  reporting.
+- A `verifier` reviews every change: after each implementation phase of a plan or, without a plan,
+  once the change is complete. It checks it against what the phase promised or against the request.
+- Re-run at least one reported command yourself.
+- When two reports contradict each other, settle the point against the code before going on.
+- Check each verifier finding against the request and the code. A finding that breaks the request is
+  a blocker, and the report names each discarded finding with its reason.
+- Blockers get one correction batch from the `worker` that wrote the change, then one recheck limited to those blockers.
+  Blockers still open go to the user as a decision, never into another correction batch.
+- When a role fails its task twice, give it a check it can run, such as a test. If it still fails,
+  tell the user.
+
+## Clean up
+
 - Once the work lands or is discarded, and before reporting it done, remove what was built for it.
-  That covers every checkout, branch, notes file, report file, container, volume and image, with the repository's
-  own cleanup command when it ships one. Only what still holds unshipped work stays, and the report
-  names it.
+- That covers every checkout, branch, notes file, report file, prompt file, stack, container,
+  volume and image. Use the repository's own cleanup command when it ships one.
+- Only what still holds unshipped work stays, and the report names it.
 
-## Agentic IDE
+## Host
 
-The host is the agentic IDE that runs the main loop. Each supported host — Orca, Paseo, cmux and
-T3 Code — has an adapter in `~/.pi/agent/docs/orchestration/`. A host worker is a subagent that the
-host runs, so the user traces it in the IDE. In T3 Code every subagent is a host worker, whatever
-its role. In Orca, Paseo and cmux only a watched worker, one the user asks to follow in its own
-pane, is a host worker.
-
-Delegation to a host worker is supervised, and an unsupervised handoff happens
-only when the user asks for one.
-
-1. Before the first subagent of a session, detect the host: run the Detection check of each adapter.
-   The adapter whose check passes is the host. An IDE started from another IDE's terminal inherits
-   its variables, so more than one check can pass. Then ask the user which IDE hosts the work. When
-   no check passes, every subagent runs in the session.
-2. Read the rest of that adapter before the first host worker. It alone names the IDE's commands.
-3. Start each host worker with a self-contained prompt.
-4. Wait the way the adapter names until every worker has settled or the user needs to decide
-   something.
-5. Answer a worker's question in its own thread; an answer that changes the agreed design goes into
-   its prompt or spec in the same step.
-6. Verify each settled worker as the Verifying section below says, then report one line per task with
-   its outcome, its evidence and the IDs the IDE gives it.
-7. Once a worker's result is accepted — merged, or its answer taken — release it at once the way the
-   adapter names, and remove its checkout, branch, stack and prompt file. A follow-up goes to the same
-   worker when the host can reopen it, and to a new worker otherwise.
-
-## Verifying
-
-- A subagent's report states intent, not outcome: before reporting, read its diff and check it against
-  the request.
-- Verification follows risk: documentation needs a read-back; an ordinary behaviour change needs the
-  writer to run the commands named in its prompt and report each with its result; security,
-  credentials, data loss, migrations, public contracts or anything unclear also need a fresh verifier
-  without the writer's context, run as the `code-review` skill says once the change is committed locally. Whatever the tier, re-run at least one reported command yourself.
-- A writer that runs on a small model or at low effort raises its verification tier by one.
-- When two reports contradict each other, the main loop settles the point against the code before it
-  goes on.
-- The main loop checks each verifier finding against the request and the code. A finding that breaks
-  the request is a blocker, and the report names each discarded finding with its reason.
-- Blockers get one correction batch that fixes them all, then one recheck limited to those blockers.
-  Blockers still open go to the user as a decision, never into another correction loop.
+- Open `HOSTS.md` before the first subagent of a session, to detect the agentic IDE that hosts the work.

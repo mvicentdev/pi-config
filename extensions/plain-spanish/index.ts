@@ -59,7 +59,7 @@ const SCRATCH_PREFIXES = ["/tmp/", "/private/tmp/"];
 // Solo se revisa como prosa lo que tiene extensión de prosa. Un fichero sin extensión conocida suele ser código.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "markdown", "txt", "rst", "adoc"]);
 
-interface SessionState {
+export interface SessionState {
 	config: SteConfig;
 	enabled: boolean;
 	ready: boolean;
@@ -97,6 +97,8 @@ function systemPromptRules(config: SteConfig): string {
 		...rules,
 		"",
 		"Una infracción que bloquea detiene la escritura, la edición o el commit. Corrige el texto que indica el aviso y vuelve a intentarlo. Una infracción que avisa no detiene nada. También se revisa cada respuesta.",
+		"",
+		"En un fichero que ya existe solo se revisan las líneas que cambias. Cámbialo con edit y conserva tal cual las líneas que no tocas.",
 	].join("\n");
 }
 
@@ -185,7 +187,7 @@ function createGatedBashTool(cwd: string, state: SessionState) {
 	return { ...definition, execute };
 }
 
-function createGatedWriteTool(cwd: string, state: SessionState) {
+export function createGatedWriteTool(cwd: string, state: SessionState) {
 	const definition = createWriteToolDefinition(cwd);
 	const execute: typeof definition.execute = async (...args) => {
 		const [toolCallId, input, signal, _onUpdate, ctx] = args;
@@ -195,7 +197,9 @@ function createGatedWriteTool(cwd: string, state: SessionState) {
 				writeFile: async (path, content) => {
 					if (state.enabled) {
 						ensureReady(state);
-						lintProposedText(state, ctx, toolCallId, input.path, content);
+						// Como en edit, las líneas que el fichero ya tenía no se revisan.
+						const previousText = await readFile(path, "utf8").catch(() => undefined);
+						lintProposedText(state, ctx, toolCallId, input.path, content, previousText);
 					}
 					await mkdir(dirname(path), { recursive: true });
 					if (signal?.aborted) throw new Error("Operation aborted");

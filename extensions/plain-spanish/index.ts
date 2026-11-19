@@ -52,8 +52,12 @@ const SEVERITY_LABELS: Readonly<Record<"hard" | "soft", string>> = { hard: "bloq
 
 // PHP no figura en la tabla del paquete. Sin esto, el motor revisaría el código entero como prosa.
 const PHP: PathClassification = { kind: "slash-source", sourceDialect: "general" };
-// El código copiado de terceros conserva sus comentarios, que no siguen estas reglas.
-const VENDORED: PathClassification = { kind: "prose-file", sourceDialect: "general", skipped: true };
+// Lo que no se revisa. El código copiado de terceros conserva sus comentarios, que no siguen estas reglas.
+const SKIPPED: PathClassification = { kind: "prose-file", sourceDialect: "general", skipped: true };
+// Las notas temporales no se publican. El usuario no las lee como documento.
+const SCRATCH_PREFIXES = ["/tmp/", "/private/tmp/"];
+// Solo se revisa como prosa lo que tiene extensión de prosa. Un fichero sin extensión conocida suele ser código.
+const PROSE_EXTENSIONS = new Set(["md", "mdx", "markdown", "txt", "rst", "adoc"]);
 
 interface SessionState {
 	config: SteConfig;
@@ -121,9 +125,13 @@ function formatViolations(heading: string, violations: readonly Violation[]): st
 }
 
 function classify(path: string): PathClassification {
-	if (path.split("/").includes("vendor")) return VENDORED;
+	if (path.split("/").includes("vendor")) return SKIPPED;
+	if (SCRATCH_PREFIXES.some((prefix) => path.startsWith(prefix)) || path.includes(".agents/artifacts/")) return SKIPPED;
 	if (path.toLowerCase().endsWith(".php")) return PHP;
-	return classifyPath(path);
+	const classification = classifyPath(path);
+	if (classification.kind !== "prose-file" || classification.skipped) return classification;
+	const extension = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+	return path.lastIndexOf(".") > path.lastIndexOf("/") && PROSE_EXTENSIONS.has(extension) ? classification : SKIPPED;
 }
 
 function lintText(state: SessionState, kind: LintKind, text: string, extra: object = {}): LintReport {

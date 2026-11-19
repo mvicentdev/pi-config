@@ -21,6 +21,22 @@ test("deja pasar el recorte de otra salida y los recuentos", () => {
 	assert.equal(fileCommand("pi --list-models | grep sol"), null);
 });
 
+test("deja pasar un cat que escribe en un fichero", () => {
+	assert.equal(fileCommand("cat > /tmp/a.py <<'EOF'\nprint(1)\nEOF"), null);
+	assert.equal(fileCommand("cat <<'EOF' > /tmp/a.py\nprint(1)\nEOF\npython3 /tmp/a.py"), null);
+	assert.equal(fileCommand("cat a.txt b.txt >> c.txt"), null);
+	assert.equal(fileCommand("cat a.txt >c.txt"), null);
+});
+
+test("rechaza un cat que imprime aunque redirija otra salida", () => {
+	assert.equal(fileCommand("cat a.txt 2>/dev/null"), "cat");
+	assert.equal(fileCommand("cat a.txt >&2"), "cat");
+	assert.equal(fileCommand("cat a.txt > /dev/stdout"), "cat");
+	assert.equal(fileCommand("cat a.txt >/dev/tty"), "cat");
+	assert.equal(fileCommand("cat a.txt > >(less)"), "cat");
+	assert.equal(fileCommand("cat > out.txt <<'EOF' | wc\nx\nEOF\ncat out.txt"), "cat");
+});
+
 test("ignora el texto de cadenas y heredocs", () => {
 	assert.equal(fileCommand('git commit -m "fix; cat the logs"'), null);
 	assert.equal(fileCommand("python3 - <<'E'\nimport os\ncat = 1\nE\necho ok"), null);

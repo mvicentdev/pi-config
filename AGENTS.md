@@ -22,6 +22,7 @@ The user reads every message to follow the work, so each one carries only what t
 
 ### Report
 
+- A report of finished work opens with what changes for the person who uses the product. A change that person never sees says so in one clause.
 - Give one line per finding or change with the figure that settles it, failures with their output, and what is left undone. Inside a multi-step task, name the step.
 - A report, review or proposal keeps each part the request asks for and what the user needs to decide or act.
 - Leave out the rule a finding breaks, its file and the process that led there.
@@ -64,7 +65,10 @@ Una campaña duplicada conserva sus textos y empieza en borrador. Una llamada re
 
 ### Questions
 
-- Ask only when the answer changes your next step and no sensible default settles it. Otherwise decide and say what you chose.
+- Ask only when the answer changes your next step and no sensible default settles it. Otherwise decide and report the choice in one line the user can veto.
+- A question asks what the product does for the person who uses it. It also asks what these instructions, a skill or a project's rules reserve for the user.
+- A technical or process choice the request leaves open is yours. Such a choice is a name, a file's place, a library, a test approach, a branch name or the work's order.
+  Settle it from the code and the project's documents.
 - Each question carries your recommendation.
 - A message asks one question, as a bold line that names the concrete case it settles. In a round of several decisions it opens with the decision's number.
 - One lettered option per line follows, each of one clause and the recommended one first, so a letter answers it.

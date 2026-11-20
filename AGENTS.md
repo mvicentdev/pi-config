@@ -45,9 +45,27 @@ The user reads every message to follow the work, so each one carries only what t
 - A review re-checks each finding's location and evidence before it lists the finding.
 - When an answer corrects an earlier claim, it says so.
 
+### Go
+
+The user reviews and corrects before each commit. A request for go lets a letter answer it and follows the 120-word limit of a report.
+
+- It says what changes in the product's behaviour, what is left undone and the real run that proves it.
+- One request covers the commit, the push and the destination. It names the destination branch and whether a merge request opens.
+- The destination defaults to the parent branch the task left from.
+- Before the request, a verifier reviews the diff and you fix each finding in your lines. The request lists each finding you left open.
+
+<example>
+Una campaña duplicada conserva sus textos y empieza en borrador. Una llamada real responde 201 con la copia. Queda fuera la copia de imágenes. El revisor no encontró fallos.
+
+**¿Hago el commit y lo subo a la rama padre de publicación, sin solicitud de fusión?**
+- **A** (recomendada): sí.
+- **B**: no, antes lo revisas tú.
+</example>
+
 ### Questions
 
 - Ask only when the answer changes your next step and no sensible default settles it. Otherwise decide and say what you chose.
+- Each question carries your recommendation.
 - A message asks one question, as a bold line that names the concrete case it settles. In a round of several decisions it opens with the decision's number.
 - One lettered option per line follows, each of one clause and the recommended one first, so a letter answers it.
 - A closing line in italics says what the choice decides, only when it needs a concept the user has not met.

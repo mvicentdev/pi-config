@@ -1,5 +1,7 @@
 /**
- * Rechaza en bash las órdenes que buscan o imprimen ficheros (cat, sed, grep, rg, find, head, tail).
+ * Rechaza en bash las órdenes que buscan o imprimen ficheros de un repositorio (cat, sed, grep, rg, find,
+ * head, tail). Fuera de un repositorio, como en /tmp o en los registros de sesiones, fff no indexa
+ * y la orden corre.
  * Sus salidas llenaban el contexto sin el límite ni la ordenación de read, grep y find, y cada
  * llamada posterior las volvía a leer de la caché. Recortar la salida de otro comando tras una
  * tubería (`docker compose … | tail`) y contar con `… | wc -l` siguen permitidos.
@@ -19,13 +21,13 @@ export default function bashGuard(pi: ExtensionAPI) {
 		return { systemPrompt: event.systemPrompt.replace(DEFAULT_SNIPPET, GUARDED_SNIPPET) };
 	});
 
-	pi.on("tool_call", (event) => {
+	pi.on("tool_call", (event, ctx) => {
 		if (event.toolName !== "bash") return undefined;
-		const name = fileCommand(String(event.input.command ?? ""));
+		const name = fileCommand(String(event.input.command ?? ""), ctx.cwd);
 		if (!name) return undefined;
 		return {
 			block: true,
-			reason: `Blocked before running: no part of this command ran. Rerun the other parts on their own. \`${name}\` is not run through bash: read files with the read tool (offset/limit for a range), search contents with the grep tool and paths with the find tool. Piping another command's output (\`cmd | tail\`), exact counts (\`… | wc -l\`) and \`cat > file\` writes are allowed.`,
+			reason: `Blocked before running: no part of this command ran. Rerun the other parts on their own. \`${name}\` is not run through bash inside a repository: read files with the read tool (offset/limit for a range), search contents with the grep tool and paths with the find tool. Piping another command's output (\`cmd | tail\`), exact counts (\`… | wc -l\`), \`cat > file\` writes and reads outside any repository are allowed.`,
 		};
 	});
 }

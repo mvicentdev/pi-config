@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { createGatedWriteTool, type SessionState } from "./index.ts";
+import { createGatedWriteTool, lengthFeedback, MAX_REPLY_PROSE_WORDS, proseWordCount, type SessionState } from "./index.ts";
 
 const LONG = "This sentence is far too long because it keeps adding one more word after another word until it holds many more than the twenty five words that the rule allows.";
 const state: SessionState = { config: {}, enabled: true, ready: true, pendingWarnings: new Map() };
@@ -41,4 +41,15 @@ test("bloquea una frase larga nueva al reescribir un fichero", async () => {
 test("bloquea una frase larga en un fichero nuevo", async () => {
 	const path = await scratchFile();
 	await assert.rejects(write(path, `# Doc\n\n${LONG}\n`), /sentence-length/);
+});
+
+test("cuenta solo las palabras de prosa de una respuesta", () => {
+	const reply = "Hecho: el cambio está subido.\n\n```bash\ngit push origin main\n```\n\n| a | b |\n|---|---|\n| uno | dos |\n\nUsa `node --test` y mira https://example.com/x.";
+	assert.equal(proseWordCount(reply), 8);
+});
+
+test("avisa cuando una respuesta pasa del tope de prosa", () => {
+	const words = (count: number) => Array(count).fill("palabra").join(" ");
+	assert.equal(lengthFeedback(words(MAX_REPLY_PROSE_WORDS)), undefined);
+	assert.match(lengthFeedback(words(MAX_REPLY_PROSE_WORDS + 1)) ?? "", /121 palabras/);
 });

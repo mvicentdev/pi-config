@@ -239,7 +239,29 @@ function createGatedEditTool(cwd: string, state: SessionState) {
 	return { ...definition, execute };
 }
 
-function updateReplyState(state: SessionState, ctx: ExtensionContext, text?: string): void {
+// El tope de prosa de un informe o un estado. Una respuesta a una pregunta tiene el suyo en AGENTS.md.
+export const MAX_REPLY_PROSE_WORDS = 120;
+
+/** Las palabras de prosa de una respuesta. No cuentan el código, las tablas, el código en línea ni los enlaces. */
+export function proseWordCount(text: string): number {
+	return text
+		.replace(/```[\s\S]*?(```|$)/g, " ")
+		.split("\n")
+		.filter((line) => !line.trimStart().startsWith("|"))
+		.join("\n")
+		.replace(/`[^`\n]*`/g, " ")
+		.replace(/https?:\S+/g, " ")
+		.split(/\s+/)
+		.filter((word) => /\p{L}/u.test(word)).length;
+}
+
+export function lengthFeedback(text: string): string | undefined {
+	const words = proseWordCount(text);
+	if (words <= MAX_REPLY_PROSE_WORDS) return undefined;
+	return `Tu respuesta anterior tenía ${words} palabras de prosa. El tope es ${MAX_REPLY_PROSE_WORDS} para un informe o un estado, y 40 para una respuesta a una pregunta. Recorta la siguiente.`;
+}
+
+function updateReplyState(state: SessionState, ctx: ExtensionContext, text?: string, final = false): void {
 	state.pendingReplyFeedback = undefined;
 	if (text === undefined || !state.ready) {
 		if (ctx.hasUI) ctx.ui.setWidget("plain-spanish-reply", undefined);
@@ -247,7 +269,11 @@ function updateReplyState(state: SessionState, ctx: ExtensionContext, text?: str
 	}
 	const report = lintText(state, "prose-file", text);
 	const { hard } = splitViolations(report.violations);
-	if (hard.length > 0) state.pendingReplyFeedback = formatViolations("Infracciones de escritura en tu respuesta anterior", hard);
+	const feedback = [
+		hard.length > 0 ? formatViolations("Infracciones de escritura en tu respuesta anterior", hard) : undefined,
+		final ? lengthFeedback(text) : undefined,
+	].filter((part) => part !== undefined);
+	if (feedback.length > 0) state.pendingReplyFeedback = feedback.join("\n\n");
 	if (!ctx.hasUI) return;
 	const soft = report.summary.total - report.summary.hard;
 	const status = report.summary.total === 0 ? "Respuesta: limpia" : `Respuesta: ${report.summary.hard} bloquean, ${soft} avisan`;
@@ -313,7 +339,9 @@ export default function plainSpanish(pi: ExtensionAPI) {
 		if (!state.enabled || event.message.role !== "assistant") return;
 		const textBlocks = event.message.content.filter((block) => block.type === "text");
 		if (textBlocks.length === 0) return;
-		updateReplyState(state, ctx, textBlocks.map((block) => block.text).join("\n"));
+		// El tope de palabras solo mide la respuesta que cierra el turno. El texto junto a una herramienta es narración.
+		const final = !event.message.content.some((block) => block.type === "toolCall");
+		updateReplyState(state, ctx, textBlocks.map((block) => block.text).join("\n"), final);
 	});
 
 	pi.on("context", (event) => {

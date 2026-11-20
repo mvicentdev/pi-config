@@ -9,7 +9,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const REMINDER =
-	"<system-reminder>Reply in Castilian Spanish and apply the Feedback rules in AGENTS.md: the first word is the answer, never the subject of the question; no sentence repeats another; at most 40 words of prose for a question and short turns otherwise, with detail only after the user says they do not understand, plain words over inline code; cut each report to the parts asked for and what the user needs to decide or act, keeping pending decisions whole, without rule names, the finding's file or process.</system-reminder>";
+	"<system-reminder>Reply in Castilian Spanish and apply the Feedback rules in AGENTS.md: the first word is the answer, never the subject of the question; no sentence repeats another; at most 40 words of prose for a question and 120 for a report, status or proposal, with detail only after the user says they do not understand, plain words over inline code, a few words for each term the user has not met, and the content of an earlier item instead of its number; cut each report to the parts asked for and what the user needs to decide or act, keeping pending decisions whole, without rule names, the finding's file or process.</system-reminder>";
 
 export default function feedbackReminder(pi: ExtensionAPI) {
 	pi.on("context", (event) => {

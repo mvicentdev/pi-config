@@ -258,7 +258,7 @@ export function proseWordCount(text: string): number {
 export function lengthFeedback(text: string): string | undefined {
 	const words = proseWordCount(text);
 	if (words <= MAX_REPLY_PROSE_WORDS) return undefined;
-	return `Tu respuesta anterior tenía ${words} palabras de prosa. El tope es ${MAX_REPLY_PROSE_WORDS} para un informe o un estado, y 40 para una respuesta a una pregunta. Recorta la siguiente.`;
+	return `Tu respuesta anterior tenía ${words} palabras de prosa. El tope es ${MAX_REPLY_PROSE_WORDS} para un informe o un estado, 60 para trabajo terminado y 40 para una respuesta a una pregunta. Recorta la siguiente.`;
 }
 
 function updateReplyState(state: SessionState, ctx: ExtensionContext, text?: string, final = false): void {

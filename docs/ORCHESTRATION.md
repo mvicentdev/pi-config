@@ -68,6 +68,8 @@ below is relative to this file's directory.
   reporting.
 - A `verifier` reviews every change: after each implementation phase of a plan or, without a plan,
   once the change is complete. It checks it against what the phase promised or against the request.
+- When the project has review criteria of its own, the `verifier` prompt names their path. That review
+  is the one the project asks for before a go.
 - Re-run at least one reported command yourself.
 - When two reports contradict each other, settle the point against the code before going on.
 - Check each verifier finding against the request and the code. A finding that breaks the request is

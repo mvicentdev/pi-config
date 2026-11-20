@@ -27,10 +27,6 @@ below is relative to this file's directory.
 - Deciding or verifying inline takes one parallel batch of at most three calls and about 10k tokens.
 - Past that, or past about five sequential lookups, one `explorer` maps it and returns path:line
   evidence.
-- The work's temporary directory is a directory under `/tmp` named after the work.
-- The notes file lives there and holds what several subagents share: the map and the agreed decisions.
-  Each worker prompt points to it.
-- After each write, the main loop updates the notes file or drops it before the next launch.
 - One subagent takes one question or one change. Launch each distinct task once, and the independent
   ones together.
 - The main loop writes inline a task of one unit that fits in its context with room to spare.
@@ -38,6 +34,13 @@ below is relative to this file's directory.
   It plans the units, hands each independent one to its own `worker` and verifies each result.
 - Units that depend on one another go to one `worker`, resumed for each next unit.
 - A `worker` also does the reading that prepares its write.
+
+## Notes
+
+- The work's temporary directory is a directory under `/tmp` named after the work.
+- The notes file lives there and holds what several subagents share: the map and the agreed decisions.
+  Each worker prompt points to it.
+- After each write, the main loop updates the notes file or drops it before the next launch.
 
 ## Prompt
 
@@ -69,7 +72,7 @@ below is relative to this file's directory.
 - A `verifier` reviews every change: after each implementation phase of a plan or, without a plan,
   once the change is complete. It checks it against what the phase promised or against the request.
 - When the project has review criteria of its own, the `verifier` prompt names their path. That review
-  is the one the project asks for before a go.
+  is the one the project asks for before a go, and it holds for the review of a later fix too.
 - Re-run at least one reported command yourself.
 - When two reports contradict each other, settle the point against the code before going on.
 - Check each verifier finding against the request and the code. A finding that breaks the request is

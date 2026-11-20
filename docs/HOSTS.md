@@ -3,10 +3,14 @@
 The host is the agentic IDE that runs the main loop. Orca is the supported host, and its adapter is
 `orchestration/orca.md`, relative to this file's directory.
 
+## Watched worker
+
 - A watched worker is a `worker` that Orca runs in its own pane, so the user follows it there. It runs
   only when the user asks for one.
 - The main loop waits for a watched worker and verifies its result. It hands work off without waiting
   only when the user asks for that.
+
+## Steps
 
 1. Before the first subagent of a session, run the adapter's Detection check.
 2. When the check fails, every subagent runs in the session. Tell the user when they ask for a

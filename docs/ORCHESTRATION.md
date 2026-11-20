@@ -41,6 +41,8 @@ below is relative to this file's directory.
 - The notes file lives there and holds what several subagents share: the map and the agreed decisions.
   Each worker prompt points to it.
 - After each write, the main loop updates the notes file or drops it before the next launch.
+- When a subagent reports a fact that breaks the plan, the main loop corrects the notes file. It then
+  steers each background subagent the fact affects.
 
 ## Prompt
 
@@ -61,9 +63,7 @@ below is relative to this file's directory.
 - Five subagents at most run at a time. Launch a task once every task it depends on has landed.
 - Wait for the completion notice instead of polling.
 - Steer a subagent that runs in the background only when its boundary changes or it needs a fact just learned.
-- Resume a finished subagent to follow up in its own context. Each task gets one subagent.
-- When a subagent reports a fact that breaks the plan, the main loop corrects the notes file. It then
-  steers each background subagent the fact affects.
+- Resume a finished subagent to follow up in its own context.
 
 ## Verify
 

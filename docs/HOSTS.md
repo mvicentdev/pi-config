@@ -7,8 +7,7 @@ The host is the agentic IDE that runs the main loop. Orca is the supported host,
 
 - A watched worker is a `worker` that Orca runs in its own pane, so the user follows it there. It runs
   only when the user asks for one.
-- The main loop waits for a watched worker and verifies its result. It hands work off without waiting
-  only when the user asks for that.
+- The main loop hands work off without waiting only when the user asks for that.
 
 ## Steps
 
@@ -21,6 +20,6 @@ The host is the agentic IDE that runs the main loop. Orca is the supported host,
    its prompt in the same step.
 6. Verify each settled watched worker as `ORCHESTRATION.md` says. Then report one line per task with its
    outcome and its evidence.
-7. Once a watched worker's result is merged or its answer taken, release it at once. Remove its checkout,
-   branch, stack and prompt file in the same step.
+7. Once a watched worker's result is merged or its answer taken, release it at once. Clean up
+   what was built for it in the same step, as Clean up in `ORCHESTRATION.md` says.
 8. A follow-up goes to the same watched worker when Orca can reopen it, and to a new one otherwise.

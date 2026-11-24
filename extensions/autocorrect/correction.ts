@@ -1,11 +1,9 @@
-// Qué palabras del mensaje se revisan, qué respuesta de Jev se acepta y cómo se aplica, sin
-// dependencias para poder probarlo aparte.
+// Sin dependencias, para probarlo aparte.
 
 export type Word = { word: string; start: number };
 export type Fix = Word & { correction: string };
 export type JevAnswer = { type: string; choice?: string; probabilities?: Record<string, number> };
 
-// Probabilidad mínima que Jev debe dar a un candidato para sustituir la palabra escrita.
 export const MIN_PROBABILITY = 0.8;
 
 // Palabra delimitada por espacios o puntuación a ambos lados: así quedan fuera rutas, menciones,

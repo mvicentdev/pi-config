@@ -1,19 +1,16 @@
 /**
- * Rechaza en bash las órdenes que buscan o imprimen ficheros de un repositorio (cat, sed, grep, rg, find,
- * head, tail). Fuera de un repositorio, como en /tmp o en los registros de sesiones, fff no indexa
- * y la orden corre.
- * Sus salidas llenaban el contexto sin el límite ni la ordenación de read, grep y find, y cada
- * llamada posterior las volvía a leer de la caché. Recortar la salida de otro comando tras una
- * tubería (`docker compose … | tail`) y contar con `… | wc -l` siguen permitidos.
- * El aviso dice que no corrió nada de la orden, para que el agente no compruebe qué se ejecutó.
- * La línea de bash del prompt deja de citar grep y find como ejemplos.
+ * Bloquea en bash la lectura de ficheros de un repositorio, para que el agente use read, grep y find.
+ * Esas salidas llenaban el contexto sin el límite ni la ordenación de read, grep y find, y cada llamada las releía de la caché.
+ * Fuera de un repositorio fff no indexa, y la orden corre.
+ * El aviso dice que nada corrió, para que el agente no compruebe qué se ejecutó.
+ * El prompt pide rutas absolutas porque los `cd` a otra copia causaban la mayoría de los bloqueos.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { fileCommand } from "./guard.ts";
+import { blockReason, fileCommand } from "./guard.ts";
 
 const DEFAULT_SNIPPET = "- bash: Execute bash commands (ls, grep, find, etc.)";
 const GUARDED_SNIPPET =
-	"- bash: Execute bash commands (git, builds, tests, scripts). Read, search and list files with read, grep and find.";
+	"- bash: Execute bash commands (git, builds, tests, scripts). Read, search and list files with read, grep and find, with absolute paths for another directory.";
 
 export default function bashGuard(pi: ExtensionAPI) {
 	pi.on("before_agent_start", (event) => {
@@ -23,11 +20,8 @@ export default function bashGuard(pi: ExtensionAPI) {
 
 	pi.on("tool_call", (event, ctx) => {
 		if (event.toolName !== "bash") return undefined;
-		const name = fileCommand(String(event.input.command ?? ""), ctx.cwd);
-		if (!name) return undefined;
-		return {
-			block: true,
-			reason: `Blocked before running: no part of this command ran. Rerun the other parts on their own. \`${name}\` is not run through bash inside a repository: read files with the read tool (offset/limit for a range), search contents with the grep tool and paths with the find tool. Piping another command's output (\`cmd | tail\`), exact counts (\`… | wc -l\`), \`cat > file\` writes and reads outside any repository are allowed.`,
-		};
+		const blocked = fileCommand(String(event.input.command ?? ""), ctx.cwd);
+		if (!blocked) return undefined;
+		return { block: true, reason: blockReason(blocked, ctx.cwd) };
 	});
 }

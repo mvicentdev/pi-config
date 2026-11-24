@@ -1,10 +1,7 @@
 /**
  * Adaptación al castellano del adaptador pi de agent-simple-english.
- * Reutiliza el motor del paquete y escribe en castellano el prompt, los bloqueos y los avisos.
- * Solo activa las reglas que valen en cualquier idioma. Las demás dependen del inglés.
+ * Reutiliza el motor del paquete. Solo activa las reglas que valen en cualquier idioma.
  * Importa rutas internas del paquete, así que package.json fija la versión 0.8.0 exacta.
- * Rutas usadas: engine/lint, engine/kinds, engine/rules/registry, config/load,
- * config/schema, adapter/commit-message y adapter/feedback.
  */
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
@@ -50,13 +47,13 @@ const FIXES: Readonly<Record<ActiveRuleId, string>> = {
 
 const SEVERITY_LABELS: Readonly<Record<"hard" | "soft", string>> = { hard: "bloquea", soft: "avisa" };
 
-// PHP no figura en la tabla del paquete. Sin esto, el motor revisaría el código entero como prosa.
+// PHP no figura en la tabla del paquete: sin esto el motor revisaría el código como prosa.
 const PHP: PathClassification = { kind: "slash-source", sourceDialect: "general" };
-// Lo que no se revisa. El código copiado de terceros conserva sus comentarios, que no siguen estas reglas.
+// Lo que no se revisa. El código de terceros (vendor) conserva sus comentarios, que no siguen estas reglas.
 const SKIPPED: PathClassification = { kind: "prose-file", sourceDialect: "general", skipped: true };
-// Las notas temporales no se publican. El usuario no las lee como documento.
+// Notas temporales y artefactos: el usuario no los lee como documento.
 const SCRATCH_PREFIXES = ["/tmp/", "/private/tmp/"];
-// Solo se revisa como prosa lo que tiene extensión de prosa. Un fichero sin extensión conocida suele ser código.
+// Un fichero sin extensión de prosa suele ser código y no se revisa.
 const PROSE_EXTENSIONS = new Set(["md", "mdx", "markdown", "txt", "rst", "adoc"]);
 
 export interface SessionState {
@@ -239,7 +236,7 @@ function createGatedEditTool(cwd: string, state: SessionState) {
 	return { ...definition, execute };
 }
 
-// El tope de prosa de un informe o un estado. Una respuesta a una pregunta tiene el suyo en AGENTS.md.
+// Tope de un informe o un estado. Los demás topes (60 y 40) están en AGENTS.md y en lengthFeedback.
 export const MAX_REPLY_PROSE_WORDS = 120;
 
 /** Las palabras de prosa de una respuesta. No cuentan el código, las tablas, el código en línea ni los enlaces. */

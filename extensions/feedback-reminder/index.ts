@@ -1,10 +1,9 @@
 /**
- * Recuerda las reglas de `## Feedback` de AGENTS.md en cada mensaje del usuario. AGENTS.md va en el
- * system prompt y, en una sesión larga, queda enterrado bajo la conversación; el recordatorio viaja
- * junto al mensaje más reciente, que es el que más pesa. Se añade solo a la copia que se envía al
- * modelo (el evento `context` recibe un clon), así que no aparece en la sesión guardada ni en la
- * pantalla. Va en todos los mensajes del usuario, no solo en el último, para que el prefijo enviado
- * sea idéntico de un turno a otro y la caché de prompt siga sirviendo.
+ * Recuerda las reglas de `## Feedback` de AGENTS.md en cada mensaje del usuario. En una sesión
+ * larga AGENTS.md queda enterrado bajo la conversación, y el recordatorio junto al mensaje más
+ * reciente pesa más. Solo se añade a la copia enviada al modelo (el evento `context` recibe un
+ * clon), no a la sesión guardada ni a la pantalla. Va en todos los mensajes del usuario, no solo
+ * en el último, para que el prefijo sea idéntico entre turnos y la caché de prompt sirva.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 

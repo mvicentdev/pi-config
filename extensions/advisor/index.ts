@@ -1,11 +1,9 @@
 /**
- * Añade la herramienta `advisor`, al estilo del patrón asesor de Anthropic: el modelo ejecutor
- * consulta a un modelo más capaz (Fable) en los momentos que deciden el resultado — antes de elegir
- * un enfoque, cuando se atasca y antes de dar por terminada una tarea compleja — sin pagar ese modelo
- * en cada paso. El asesor recibe la conversación de la rama actual y la pregunta, nunca llama a
- * herramientas y solo responde con un plan o una corrección. Su consumo va en el `usage` del
- * resultado para que los totales de la sesión lo cuenten. El modelo se lee de advisor.json en cada
- * consulta; `/advisor anthropic/claude-fable-5-1` lo fija y `/advisor` muestra el actual.
+ * Herramienta `advisor`, al estilo del patrón asesor de Anthropic: el modelo ejecutor consulta a
+ * un modelo más capaz (Fable) solo en los momentos que deciden el resultado, sin pagarlo en cada
+ * paso. El asesor recibe la conversación de la rama actual y la pregunta, y no llama a
+ * herramientas. Su consumo va en el `usage` del resultado para que los totales de la sesión lo
+ * cuenten. El modelo se lee de advisor.json en cada consulta.
  */
 import { Type } from "@earendil-works/pi-ai";
 import { convertToLlm, type ExtensionAPI } from "@earendil-works/pi-coding-agent";

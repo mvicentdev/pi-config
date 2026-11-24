@@ -68,8 +68,6 @@ export default function statusLine(pi: ExtensionAPI) {
 		requestRender();
 	};
 
-	// Colores: la barra pinta con la paleta de Ghostty elegida o con el tema de pi, y con
-	// «barra y pi» esa paleta se convierte en el tema de pi.
 	const applyColors = (ctx: ExtensionContext, palette = settings.palette) => {
 		const name = palette === ACTIVE_PALETTE ? activeThemeName() : palette;
 		const ghostty = palette === PI_PALETTE || !name ? undefined : loadTheme(name);

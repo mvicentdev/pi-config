@@ -1,14 +1,11 @@
 /**
  * Autocorrector del editor de pi con Jev, el modelo de decisión de TypeSafe AI. La escritura nunca
- * espera. Al cerrar una palabra, el diccionario de macOS (spellcheck.js, por JXA) mira si la conoce
- * en español o en inglés. Si no, y solo le falta una tilde o una eñe inequívoca, se corrige al
- * momento; si no, Jev elige en segundo plano, viendo el texto previo, entre dejarla o uno de los
- * candidatos del diccionario. La corrección se aplica en cuanto llega si la palabra sigue intacta
- * en su sitio, editando la línea en el sitio; en cada pausa de tecleo se revisa
- * además el resto del mensaje. La decisión se guarda
- * por palabra y contexto. Ctrl+- deshace una corrección recién hecha y esa palabra deja de
- * corregirse. Requiere TYPESAFE_API_KEY. `/autocorrect` lo activa o desactiva; el estado y las
- * palabras aceptadas se guardan en autocorrect.json.
+ * espera: todo se decide en segundo plano y la corrección se aplica al llegar, si la palabra sigue
+ * intacta en su sitio. El diccionario de macOS (spellcheck.js) descarta las palabras conocidas.
+ * Si solo falta una tilde o una eñe inequívoca se corrige sin Jev. Si no, Jev elige entre dejarla
+ * o un candidato del diccionario. Ctrl+- justo tras una corrección la deshace y esa palabra deja de corregirse.
+ * Requiere TYPESAFE_API_KEY. `/autocorrect` lo activa o desactiva. El estado y las palabras
+ * ignoradas se guardan en autocorrect.json.
  */
 import { CustomEditor, type ExtensionAPI, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import { type EditorTheme, getKeybindings, type TUI } from "@earendil-works/pi-tui";
@@ -166,7 +163,6 @@ class Corrector {
 	}
 }
 
-/** Una pregunta Choice por palabra: dejarla como está o uno de los candidatos del diccionario. */
 async function askJev(text: string, words: Word[], guesses: Guesses, apiKey: string): Promise<Record<string, JevAnswer>> {
 	const questions = Object.fromEntries(
 		words.map((word) => [
@@ -231,7 +227,6 @@ class AutocorrectEditor extends CustomEditor {
 		this.timer = setTimeout(() => this.review(), IDLE_MS);
 	}
 
-	// Si la tecla cerró una palabra, se corrige ya, en segundo plano.
 	private correctClosedWord(): void {
 		const { lines, cursorLine, cursorCol } = this.internals.state;
 		const closer = cursorCol > 0 ? lines[cursorLine]![cursorCol - 1]! : cursorLine > 0 ? "\n" : "";

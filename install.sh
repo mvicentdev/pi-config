@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Instala pi y esta configuración común para el usuario que lo ejecuta: pi clona el repositorio como
-# paquete en ~/.pi/agent/git (o $PI_CODING_AGENT_DIR/git) e instala sus dependencias, y este script
-# enlaza en ~/.pi/agent los ficheros comunes que pi solo lee de ahí.
+# Instala pi y esta configuración. pi clona el repositorio como paquete en ~/.pi/agent/git
+# (o $PI_CODING_AGENT_DIR/git) e instala sus dependencias. Este script enlaza en ~/.pi/agent
+# los ficheros comunes que pi solo lee de ahí.
 #   curl -fsSL https://raw.githubusercontent.com/mvicentdev/pi-config/main/install.sh | bash
-# Volver a ejecutarlo trae la última versión. Credenciales, proveedores, modelos y preferencias siguen
-# siendo de cada usuario; las instrucciones personales van en APPEND_SYSTEM.md, y los modelos de
-# subagente que cambien respecto de los comunes, en un subagent-models.json propio con solo esas entradas,
+#
+# Volver a ejecutarlo trae la última versión. Credenciales, proveedores, modelos y preferencias
+# siguen siendo de cada usuario. Las instrucciones personales van en APPEND_SYSTEM.md.
+# Los modelos de subagente que difieran de los comunes van en un subagent-models.json propio con solo esas entradas,
 # que escribe /subagent-models.
 set -euo pipefail
 

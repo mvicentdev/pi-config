@@ -92,7 +92,6 @@ type EditorInternals = {
 };
 const ORIGINAL_HANDLE_INPUT = Symbol.for("inline-skills.handleInput");
 
-// Opens the skill list when an edit leaves "/skill:" before the cursor, anywhere in the message.
 // Patching the prototype covers the default editor and any custom editor; /reload rewraps the original.
 export function openSkillListWhileTyping(editorClass: { prototype: object } = Editor): void {
   const prototype = editorClass.prototype as Record<symbol | string, unknown>;

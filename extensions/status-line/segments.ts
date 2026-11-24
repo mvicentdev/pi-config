@@ -145,7 +145,6 @@ const RENDER: Record<string, Render> = {
 	},
 };
 
-// Orden en la barra. En 2 líneas, la segunda empieza en «tokens».
 const LINE_ONE = ["brand", "location", "model", "context"];
 const LINE_TWO = ["tokens", "cacheHit", "cost", "subscription", "subagents", "turn", "latency", "speed", "sessionTime", "statuses"];
 
@@ -212,7 +211,7 @@ function formatCost(total: number, subscription: boolean): string {
 	return subscription ? `$${amount} sub` : `$${amount}`;
 }
 
-/** 850ms · 12s · 4m05s · 1h05m; con `coarse`, sin segundos por encima del minuto. */
+/** 850ms · 12s · 4m05s · 1h05m · 3d02h. Con `coarse`, sin segundos por encima del minuto. */
 export function formatDuration(ms: number, coarse = false): string {
 	const seconds = Math.max(0, Math.floor(ms / 1000));
 	if (ms < 1000 && !coarse) return `${Math.max(0, Math.round(ms))}ms`;

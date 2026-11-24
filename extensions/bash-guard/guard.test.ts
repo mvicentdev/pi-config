@@ -1,11 +1,11 @@
 // node --test extensions/bash-guard/guard.test.ts
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fileCommand, insideRepository } from "./guard.ts";
+import { blockReason, fileCommand, insideRepository } from "./guard.ts";
 
 // Un repositorio de mentira en /repo, con /repo como directorio de trabajo.
 const inRepo = (path: string) => path === "/repo" || path.startsWith("/repo/");
-const check = (command: string, cwd = "/repo") => fileCommand(command, cwd, inRepo);
+const check = (command: string, cwd = "/repo") => fileCommand(command, cwd, inRepo)?.name ?? null;
 
 test("rechaza las órdenes de ficheros al abrir un tramo", () => {
 	assert.equal(check("cat src/App.php"), "cat");
@@ -74,6 +74,13 @@ test("no toma por ruta el patrón ni la expresión de find", () => {
 	assert.equal(check("find /tmp -name x"), null);
 	assert.equal(check("cd .. && cat a", "/repo"), null);
 	assert.equal(check("cat a", "/repo/.."), null);
+});
+
+test("el aviso nombra el repositorio de un cd a otra copia", () => {
+	const reason = (command: string, cwd = "/repo") => blockReason(fileCommand(command, cwd, inRepo)!, cwd);
+	assert.match(reason("cd /repo/worktrees/feat && git status && grep -rn Foo src"), /For \/repo\/worktrees\/feat, pass absolute/);
+	assert.doesNotMatch(reason("cd /repo && cat a.ts"), /absolute/);
+	assert.doesNotMatch(reason("cd /tmp && cat /repo/a"), /absolute/);
 });
 
 test("reconoce un repositorio por su directorio .git", () => {

@@ -5,15 +5,13 @@ import { dirname, join, resolve } from "node:path";
 const FILE_COMMANDS = new Set(["cat", "sed", "grep", "egrep", "rg", "find", "head", "tail"]);
 const KEYWORDS = new Set(["do", "then", "else", "time", "!", "{", "("]);
 
-// Cuerpos de heredoc y cadenas entrecomilladas: texto, no comandos. Lo que sigue al delimitador
-// en su línea, como una redirección, se conserva.
+// Heredocs y cadenas son texto. Se conserva lo que sigue al delimitador, como una redirección.
 const stripLiterals = (command: string) =>
 	command
 		.replace(/<<-?\s*(['"]?)(\w+)\1([^\n]*)\n[\s\S]*?\n\s*\2(?=\s|$)/g, " $3")
 		.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''");
 
-// Un `cat` que redirige su salida a un fichero escribe sin imprimir nada.
-// Un dispositivo como /dev/stdout o una sustitución `>(…)` sí imprimen.
+// Un `cat` que redirige a un fichero escribe sin imprimir. /dev/stdout y `>(…)` sí imprimen.
 const isFile = (target: string | undefined) => !!target && !/^[&>(]/.test(target) && !target.startsWith("/dev/");
 const writesToFile = (words: readonly string[]) =>
 	words.some((word, index) => {
@@ -21,7 +19,6 @@ const writesToFile = (words: readonly string[]) =>
 		return !!redirect && isFile(redirect[1] || words[index + 1]);
 	});
 
-/** Si `path` cae dentro de un repositorio git: él o un directorio padre guarda `.git`. */
 export function insideRepository(path: string): boolean {
 	for (let dir = path; ; dir = dirname(dir)) {
 		if (existsSync(join(dir, ".git"))) return true;
@@ -34,11 +31,7 @@ const expandHome = (word: string) => (word === "~" || word.startsWith("~/") ? ho
 const PATTERN_FIRST = new Set(["grep", "egrep", "rg", "sed"]);
 const PATTERN_OPTION = /^(-[a-zA-Z]*[ef]|--(regexp|file|expression))/;
 
-/**
- * Las rutas que lee un tramo. Una redirección de entrada aporta la suya, y una de salida no aporta
- * ninguna. El primer operando de grep, rg o sed es su patrón, salvo que lo dé una opción. find solo lee
- * las rutas previas a su primera expresión. Una cadena o una variable cuentan como una ruta relativa.
- */
+// Una cadena o una variable cuentan como ruta relativa.
 function operands(name: string, args: readonly string[]): string[] {
 	const paths: string[] = [];
 	let skipPattern = PATTERN_FIRST.has(name) && !args.some((arg) => PATTERN_OPTION.test(arg));
@@ -67,29 +60,30 @@ function readsRepository(name: string, args: readonly string[], cwd: string, inR
 	return targets.some(inRepo);
 }
 
-// El destino de un `cd`: su primer operando, o la carpeta personal sin él. `cd -` no cambia nada.
 function changeDirectory(cwd: string, args: readonly string[]): string {
 	const target = args.find((arg) => !arg.startsWith("-") || arg === "-");
 	if (target === "-") return cwd;
 	return resolve(cwd, expandHome(target ?? "~"));
 }
 
-/**
- * La orden de ficheros que abre un tramo de `command` y lee dentro de un repositorio, o null si no hay
- * ninguna. Dentro de un repositorio buscan fff y read. Fuera, como en /tmp o en los registros de
- * sesiones, la orden corre en bash. Un `cd` de un tramo cambia el directorio de los siguientes.
- *
- * Un tramo es lo que separan `&&`, `||`, `;`, `&`, un salto de línea o `$(`.
- * Dentro de un tramo solo cuenta la primera orden de la tubería.
- * Lo que va detrás de `|` recorta la salida de otro comando.
- * Una tubería que acaba en `wc` es un recuento exacto y pasa.
- * Un `cat` que escribe en un fichero también pasa.
- */
+// fff indexa por ruta absoluta cualquier copia de trabajo, sin `cd`.
+export function blockReason({ name, directory }: { name: string; directory: string | null }, cwd: string): string {
+	const where = directory && directory !== cwd ? ` For ${directory}, pass absolute paths under it to read, grep and find.` : "";
+	return [
+		`Blocked before running: no part of this command ran. \`${name}\` is not run through bash inside a repository.`,
+		"Read a file with the read tool, using offset/limit for a range. For several files, call read once per file in the same block.",
+		`Search contents with the grep tool and paths with the find tool.${where}`,
+		"Rerun git, builds and the other parts in a bash call of their own.",
+		"Piping another command's output (`cmd | tail`), exact counts (`… | wc -l`), `cat > file` writes and reads outside any repository are allowed.",
+	].join(" ");
+}
+
+// Lo que sigue a `|` recorta la salida de otra orden, así que solo cuenta la primera.
 export function fileCommand(
 	command: string,
 	cwd: string = process.cwd(),
 	inRepo: (path: string) => boolean = insideRepository,
-): string | null {
+): { name: string; directory: string | null } | null {
 	for (const segment of stripLiterals(command).split(/&&|\|\||;|&|\n|\$\(|`/)) {
 		const pipeline = segment.split("|");
 		const last = pipeline.at(-1)?.trim().split(/\s+/)[0];
@@ -98,7 +92,7 @@ export function fileCommand(
 		const name = words[0]?.replace(/^.*\//, "");
 		if (name === "cat" && pipeline.length === 1 && writesToFile(words)) continue;
 		if (name === "cd") cwd = changeDirectory(cwd, words.slice(1));
-		if (name && FILE_COMMANDS.has(name) && readsRepository(name, words.slice(1), cwd, inRepo)) return name;
+		if (name && FILE_COMMANDS.has(name) && readsRepository(name, words.slice(1), cwd, inRepo)) return { name, directory: inRepo(cwd) ? cwd : null };
 	}
 	return null;
 }

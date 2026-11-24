@@ -1,6 +1,3 @@
-/**
- * Dibujo del panel: una línea por agente, con lo que hace a la derecha, y una línea de ayuda.
- */
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { type Row, activity, formatElapsed, formatTokens } from "./roster.ts";
 
@@ -9,9 +6,8 @@ export interface Theme {
 	bold(text: string): string;
 }
 
-/** Filas como máximo; el resto se resume en una línea. */
 export const MAX_ROWS = 6;
-/** Fotogramas del indicador de marcha, uno por segundo. */
+/** Un fotograma por segundo. */
 const SPINNER = ["◐", "◓", "◑", "◒"];
 
 function icon(row: Row, theme: Theme, frame: number): string {
@@ -63,7 +59,6 @@ function line(row: Row, theme: Theme, width: number, now: number, marked: boolea
 	return rightAlign(left, right, width);
 }
 
-/** Líneas del panel; vacío cuando no hay nada que mostrar. */
 export function render(rows: Row[], theme: Theme, width: number, now: number, selected: number | undefined, hint: string): string[] {
 	if (rows.length === 0) return [];
 	const offset = Math.floor((selected ?? 0) / MAX_ROWS) * MAX_ROWS;

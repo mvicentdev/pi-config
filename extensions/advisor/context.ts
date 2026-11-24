@@ -1,8 +1,7 @@
 import type { Message } from "@earendil-works/pi-ai";
 
-// Deja la conversación del ejecutor en una petición válida para el asesor: fuera los mensajes de
-// sistema (el asesor trae el suyo) y las llamadas a herramientas que aún no tienen resultado, entre
-// ellas la propia llamada a `advisor`. Un mensaje del asistente que se queda vacío desaparece.
+// Deja una petición válida para el asesor. Quita los mensajes de sistema, porque el asesor trae el suyo.
+// Quita las llamadas sin resultado, como la propia a `advisor`, y los mensajes del asistente que quedan vacíos.
 export function advisorMessages(messages: Message[]): Message[] {
 	const resolved = new Set(messages.flatMap((m) => (m.role === "toolResult" ? [m.toolCallId] : [])));
 	return messages.flatMap((m): Message[] => {

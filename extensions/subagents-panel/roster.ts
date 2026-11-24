@@ -21,7 +21,6 @@ export interface Row {
 	error?: string;
 }
 
-/** Cuánto sigue a la vista un agente terminado. */
 export const LINGER_MS = 4_000;
 const TOOL_LABEL: Record<string, string> = {
 	read: "leyendo",
@@ -115,12 +114,11 @@ export class Roster {
 		return rows.sort((a, b) => Number(b.status === "running") - Number(a.status === "running") || a.startedAt - b.startedAt);
 	}
 
-	/** Todos los que siguen en memoria, para elegir cuál abrir. */
+	/** Incluye los terminados ya ocultos que aún no se han podado. */
 	all(): Row[] {
 		return [...this.rows.values()].sort((a, b) => a.startedAt - b.startedAt);
 	}
 
-	/** Olvida los terminados que ya no se muestran. */
 	prune(now = Date.now()) {
 		for (const [id, row] of this.rows) {
 			if (row.status === "running") continue;
@@ -153,7 +151,6 @@ export function formatTokens(n: number): string {
 	return `${n}`;
 }
 
-/** Qué hace el agente ahora: la herramienta en curso o la primera línea de lo que escribe. */
 export function activity(row: Row): string {
 	if (row.status !== "running") return "";
 	if (row.activeTools.size > 0) {

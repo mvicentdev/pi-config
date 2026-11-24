@@ -1,11 +1,10 @@
 /**
  * Ancho máximo de pi, centrado. Pi compone cada línea con `TuiMainScreen.render(ancho)`: aquí se
- * compone con el ancho máximo y se antepone el margen que lo centra en el terminal. Las ventanas
- * superpuestas se colocan dentro de esa misma columna. En pantalla completa (`TuiAltScreen`, el modo por
- * defecto desde pi 1.2) el terminal informa del ancho máximo, la salida se desplaza con el margen y los
- * clics de ratón lo descuentan. `/max-width 120` lo fija, `/max-width left`
- * pasa al 100 % del terminal alineado a la izquierda, `/max-width center` vuelve al ancho guardado y
- * `/max-width off` lo quita; se guarda en max-width.json.
+ * compone con el ancho máximo y se antepone el margen que centra. En pantalla completa (`TuiAltScreen`,
+ * modo por defecto desde pi 1.2) el terminal informa del ancho máximo, la salida se desplaza con el
+ * margen y los clics de ratón lo descuentan.
+ * `/max-width 120` lo fija, `left` pasa al 100 % alineado a la izquierda, `center` vuelve al ancho
+ * guardado y `off` lo quita. Se guarda en max-width.json.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";

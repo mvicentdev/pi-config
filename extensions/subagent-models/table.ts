@@ -3,7 +3,7 @@ export type Table = Record<string, Record<string, Entry>>;
 
 export const INHERIT = "inherit";
 
-export const qualified = (provider: string, model?: string) =>
+const qualified = (provider: string, model?: string) =>
 	!model || model === INHERIT ? INHERIT : model.includes("/") ? model : `${provider}/${model}`;
 
 /** Lo que rige para un agente con la sesión en `provider`: la base, pisada campo a campo por el usuario. */

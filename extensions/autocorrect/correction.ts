@@ -24,6 +24,9 @@ export function proseWords(text: string): Word[] {
 	return words;
 }
 
+/** La palabra pegada al cursor se está escribiendo todavía. */
+export const touchesCursor = ({ word, start }: Word, cursor: number) => start + word.length === cursor;
+
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "");
 
 /** El único candidato que solo cambia tildes o eñes. Con dos o más, la palabra se deja. */

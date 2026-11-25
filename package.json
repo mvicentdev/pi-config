@@ -2,6 +2,9 @@
   "name": "pi-config",
   "private": true,
   "description": "Configuración común de pi para todos sus usuarios",
+  "scripts": {
+    "test": "node --test extensions/{advisor,autocorrect,bash-guard,max-width,shared}/*.test.ts extensions/subagent-models/table.test.ts extensions/subagents-panel/roster.test.ts extensions/*/*.test.mjs extensions/*/run-test.mjs"
+  },
   "dependencies": {
     "@amaster.ai/pi-attachments": "^0.1.18",
     "@dietrichgebert/ponytail": "github:DietrichGebert/ponytail",

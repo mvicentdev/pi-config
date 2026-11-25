@@ -3,12 +3,10 @@
 // El modelo se lee de advisor.json en cada consulta.
 import { Type } from "@earendil-works/pi-ai";
 import { convertToLlm, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { readJson, stateFile, writeJson } from "../shared/state-file.ts";
 import { advisorMessages } from "./context.ts";
 
-const FILE = path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi/agent"), "advisor.json");
+const FILE = stateFile("advisor.json");
 const DEFAULT_MODEL = "anthropic/claude-fable-5-1";
 
 function splitModel(name: string): [string, string] {
@@ -16,13 +14,7 @@ function splitModel(name: string): [string, string] {
 	return slash < 0 ? [name, ""] : [name.slice(0, slash), name.slice(slash + 1)];
 }
 
-function configuredModel(): string {
-	try {
-		return String(JSON.parse(fs.readFileSync(FILE, "utf8")).model || DEFAULT_MODEL);
-	} catch {
-		return DEFAULT_MODEL;
-	}
-}
+const configuredModel = (): string => String(readJson(FILE)?.model || DEFAULT_MODEL);
 
 const SYSTEM_PROMPT =
 	"You are an advisor reviewing the work of another AI agent. You see its conversation so far and its question. Give a direct, concise answer: the plan to follow or the correction to make, and why. You cannot use tools; do not ask for or describe tool calls.";
@@ -36,7 +28,7 @@ export default function advisor(pi: ExtensionAPI) {
 			if (!value || !id || !ctx.modelRegistry.find(provider, id)) {
 				return ctx.ui.notify(`Asesor actual: ${configuredModel()}. Uso: /advisor <proveedor/modelo>`, "info");
 			}
-			fs.writeFileSync(FILE, `${JSON.stringify({ model: value }, null, "\t")}\n`);
+			writeJson(FILE, { model: value });
 			ctx.ui.notify(`Asesor: ${value}`, "info");
 		},
 	});

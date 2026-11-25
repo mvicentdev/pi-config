@@ -3,12 +3,10 @@
 // la salida se desplaza con el margen y los clics lo descuentan.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { readJson, stateFile, writeJson } from "../shared/state-file.ts";
+import { MIN, padOf, parseWidthArgument, shiftColumn } from "./width.ts";
 
-const FILE = path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi/agent"), "max-width.json");
-const MIN = 40;
+const FILE = stateFile("max-width.json");
 
 // El estado vive en globalThis para que un /reload no envuelva `render` dos veces.
 // ponytail: en el modo regular los clics de ratón no descuentan el margen.
@@ -19,23 +17,22 @@ const state = ((globalThis as any).__piMaxWidth ??= {
 });
 // Aparte, porque un estado guardado por una versión anterior no lo tiene.
 state.originalLayout ??= (TuiMainScreen.prototype as any).resolveOverlayLayout;
-const padOf = (width: number) => Math.floor((width - state.columns) / 2);
 TuiMainScreen.prototype.render = function (width: number) {
 	if (state.left || !state.columns || width <= state.columns) return state.original.call(this, width);
-	const pad = " ".repeat(padOf(width));
+	const pad = " ".repeat(padOf(width, state.columns));
 	return state.original.call(this, state.columns).map((line: string) => pad + line);
 };
 // Las ventanas superpuestas se resuelven sobre la columna y se desplazan con el mismo margen.
 (TuiMainScreen.prototype as any).resolveOverlayLayout = function (options: unknown, height: number, width: number, rows: number) {
 	if (state.left || !state.columns || width <= state.columns) return state.originalLayout.call(this, options, height, width, rows);
 	const layout = state.originalLayout.call(this, options, height, state.columns, rows);
-	return { ...layout, col: layout.col + padOf(width) };
+	return { ...layout, col: layout.col + padOf(width, state.columns) };
 };
 
 // Pantalla completa: un proxy del terminal informa del ancho máximo y desplaza cada `CSI fila;col H`.
 state.originalAltRender ??= (TuiAltScreen.prototype as any).doRender;
 state.originalAltInput ??= (TuiAltScreen.prototype as any).handleTerminalInput;
-const altPad = (real: number) => (state.left || !state.columns || real <= state.columns ? 0 : padOf(real));
+const altPad = (real: number) => (state.left || !state.columns || real <= state.columns ? 0 : padOf(real, state.columns));
 const narrowed = (real: any) =>
 	new Proxy(real, {
 		get(target, key) {
@@ -63,7 +60,7 @@ const narrowed = (real: any) =>
 };
 (TuiAltScreen.prototype as any).handleTerminalInput = function (data: string) {
 	const pad = this.__maxWidthReal ? altPad(this.__maxWidthReal.columns) : 0;
-	const shift = (x: number) => Math.min(state.columns, Math.max(1, x - pad));
+	const shift = (x: number) => shiftColumn(x, pad, state.columns);
 	if (pad) {
 		data = data.replace(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/, (_, b, x, y, end) => `\x1b[<${b};${shift(Number(x))};${y}${end}`);
 		if (data.length === 6 && data.startsWith("\x1b[M"))
@@ -73,20 +70,19 @@ const narrowed = (real: any) =>
 };
 
 export default function maxWidth(pi: ExtensionAPI) {
-	try {
-		const saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
+	const saved = readJson(FILE);
+	if (saved) {
 		state.columns = Number(saved.columns) || 0;
 		state.left = saved.align === "left";
-	} catch {}
-	const save = () =>
-		fs.writeFileSync(FILE, `${JSON.stringify({ columns: state.columns, align: state.left ? "left" : "center" }, null, "\t")}\n`);
+	}
+	const save = () => writeJson(FILE, { columns: state.columns, align: state.left ? "left" : "center" });
 
 	pi.registerCommand("max-width", {
 		description: "Ancho máximo de pi: /max-width 120 (centrado), /max-width left (100 %), /max-width center, /max-width off",
 		handler: async (args, ctx) => {
-			const value = args.trim();
-			if (value === "left" || value === "center") {
-				state.left = value === "left";
+			const request = parseWidthArgument(args.trim());
+			if (request && "align" in request) {
+				state.left = request.align === "left";
 				save();
 				process.stdout.emit("resize");
 				return ctx.ui.notify(
@@ -94,11 +90,11 @@ export default function maxWidth(pi: ExtensionAPI) {
 					"info",
 				);
 			}
-			const columns = value === "off" ? 0 : Number(value);
-			if (!Number.isInteger(columns) || columns < 0 || (columns > 0 && columns < MIN)) {
+			if (!request) {
 				const current = state.left ? "100 % a la izquierda" : state.columns ? `${state.columns}, centrado` : "sin límite";
 				return ctx.ui.notify(`Ancho actual: ${current}. Uso: /max-width <${MIN} o más> | left | center | off`, "info");
 			}
+			const { columns } = request;
 			state.columns = columns;
 			state.left = false;
 			save();

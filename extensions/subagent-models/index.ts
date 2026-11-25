@@ -7,17 +7,16 @@
  * Los ficheros de agents/ no llevan `model` ni `thinking`: pi-subagents los antepone a la llamada y anularían la tabla.
  * Se lee en cada llamada, sin reiniciar. pi rebaja los niveles que el modelo no admite.
  */
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import { type Api, getSupportedThinkingLevels, type Model } from "@earendil-works/pi-ai";
 import { DynamicBorder, type ExtensionAPI, type ExtensionCommandContext, getSelectListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { effective, INHERIT, type Table, withChoice } from "./table.ts";
+import { stateFile } from "../shared/state-file.ts";
+import { effective, type Entry, INHERIT, type Table, withChoice } from "./table.ts";
 
 const BASE = fileURLToPath(new URL("../../subagent-models.json", import.meta.url));
-const USER = path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi/agent"), "subagent-models.json");
+const USER = stateFile("subagent-models.json");
 const LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 const VISIBLE = 12;
 
@@ -58,27 +57,20 @@ function pick(ctx: ExtensionCommandContext, title: string, items: SelectItem[], 
 	});
 }
 
-async function choose(ctx: ExtensionCommandContext) {
-	if (!ctx.model) return ctx.ui.notify("Sin modelo de sesión: elige uno con /model primero.", "warning");
-	const { provider } = ctx.model;
-	const base = read(BASE);
-	const user = read(USER);
-	const agents = [...new Set(Object.values(base).flatMap(Object.keys))].sort();
+type Choosing = { ctx: ExtensionCommandContext; provider: string; agent: string; current: Required<Entry>; common: Required<Entry> };
 
-	const agent = await pick(
+const pickAgent = (ctx: ExtensionCommandContext, provider: string, base: Table, user: Table) =>
+	pick(
 		ctx,
 		`Subagente (sesión en ${provider})`,
-		agents.map((name) => ({ value: name, label: name, description: describe(effective(base, user, provider, name)) })),
+		[...new Set(Object.values(base).flatMap(Object.keys))]
+			.sort()
+			.map((name) => ({ value: name, label: name, description: describe(effective(base, user, provider, name)) })),
 		"",
 	);
-	if (!agent) return;
-	const current = effective(base, user, provider, agent);
-	const common = effective(base, {}, provider, agent);
 
-	const models = [...ctx.modelRegistry.getAvailable()].sort(
-		(a, b) => Number(b.provider === provider) - Number(a.provider === provider),
-	);
-	const model = await pick(
+function pickModel({ ctx, provider, agent, current, common }: Choosing, models: Model<Api>[]) {
+	return pick(
 		ctx,
 		`Modelo de ${agent}`,
 		[
@@ -90,11 +82,10 @@ async function choose(ctx: ExtensionCommandContext) {
 		],
 		current.model,
 	);
-	if (!model) return;
+}
 
-	const chosen = model === INHERIT ? undefined : models.find((m) => `${m.provider}/${m.id}` === model);
-	const levels = chosen ? getSupportedThinkingLevels(chosen) : LEVELS;
-	const thinking = await pick(
+function pickThinking({ ctx, agent, current, common }: Choosing, levels: string[]) {
+	return pick(
 		ctx,
 		`Razonamiento de ${agent}`,
 		[INHERIT, ...levels].map((level) => ({
@@ -104,6 +95,24 @@ async function choose(ctx: ExtensionCommandContext) {
 		})),
 		current.thinking,
 	);
+}
+
+async function choose(ctx: ExtensionCommandContext) {
+	if (!ctx.model) return ctx.ui.notify("Sin modelo de sesión: elige uno con /model primero.", "warning");
+	const { provider } = ctx.model;
+	const base = read(BASE);
+	const user = read(USER);
+
+	const agent = await pickAgent(ctx, provider, base, user);
+	if (!agent) return;
+	const choosing = { ctx, provider, agent, current: effective(base, user, provider, agent), common: effective(base, {}, provider, agent) };
+
+	const models = [...ctx.modelRegistry.getAvailable()].sort((a, b) => Number(b.provider === provider) - Number(a.provider === provider));
+	const model = await pickModel(choosing, models);
+	if (!model) return;
+
+	const chosen = model === INHERIT ? undefined : models.find((m) => `${m.provider}/${m.id}` === model);
+	const thinking = await pickThinking(choosing, chosen ? getSupportedThinkingLevels(chosen) : LEVELS);
 	if (!thinking) return;
 
 	write(withChoice(user, base, provider, agent, { model, thinking }));

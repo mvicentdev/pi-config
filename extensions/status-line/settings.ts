@@ -1,29 +1,23 @@
 // Preferencias de la barra (una por usuario) y el selector de `/statusline`.
 import { getSelectListTheme, getSettingsListTheme, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getKeybindings, Input, SelectList, SettingsList, type Component, type SettingItem } from "@earendil-works/pi-tui";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { readJson, stateFile, writeJson } from "../shared/state-file.ts";
 import { ACCENTS, activeThemeName, listThemes } from "./ghostty.ts";
 import { DEFAULTS, ITEMS, type Settings } from "./segments.ts";
 
 export const PI_PALETTE = "tema de pi";
 export const ACTIVE_PALETTE = "Ghostty activo";
-export const SCOPES = ["barra", "barra y pi"];
+const SCOPES = ["barra", "barra y pi"];
 
-const FILE = path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi/agent"), "status-line.json");
+const FILE = stateFile("status-line.json");
 const COLOR_DEFAULTS: Settings = { palette: PI_PALETTE, scope: SCOPES[0], accent: ACCENTS[0] };
 
 export function loadSettings(): Settings {
-	try {
-		return { ...DEFAULTS, ...COLOR_DEFAULTS, ...JSON.parse(fs.readFileSync(FILE, "utf8")) };
-	} catch {
-		return { ...DEFAULTS, ...COLOR_DEFAULTS };
-	}
+	return { ...DEFAULTS, ...COLOR_DEFAULTS, ...readJson(FILE) };
 }
 
 export function saveSettings(settings: Settings): void {
-	fs.writeFileSync(FILE, `${JSON.stringify(settings, null, "\t")}\n`);
+	writeJson(FILE, settings);
 }
 
 const GROUP_WIDTH = 13;

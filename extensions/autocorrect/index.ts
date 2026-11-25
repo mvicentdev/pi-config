@@ -4,14 +4,13 @@
 import { CustomEditor, type ExtensionAPI, type KeybindingsManager } from "@earendil-works/pi-coding-agent";
 import { type EditorTheme, getKeybindings, type TUI } from "@earendil-works/pi-tui";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import { accentFix, applyFixes, type Fix, proseWords, type Word } from "./correction.ts";
+import { readJson, stateFile, writeJson } from "../shared/state-file.ts";
+import { applyFixes, type Fix, proseWords, touchesCursor, type Word } from "./correction.ts";
+import { Corrector, type Guesser, type Guesses } from "./corrector.ts";
 
-const FILE = path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), ".pi/agent"), "autocorrect.json");
+const FILE = stateFile("autocorrect.json");
 const HELPER = fileURLToPath(new URL("spellcheck.js", import.meta.url));
 const LANGUAGES = ["es", "en"];
 const IDLE_MS = 250;
@@ -28,23 +27,16 @@ type EditorInternals = {
 };
 
 type Settings = { enabled: boolean; ignored: string[] };
-type Guesses = Record<string, string[]>;
 
 function loadSettings(): Settings {
-	try {
-		const saved = JSON.parse(fs.readFileSync(FILE, "utf8"));
-		return { enabled: saved.enabled !== false, ignored: Array.isArray(saved.ignored) ? saved.ignored : [] };
-	} catch {
-		return { enabled: true, ignored: [] };
-	}
+	const saved = readJson(FILE);
+	return { enabled: saved?.enabled !== false, ignored: Array.isArray(saved?.ignored) ? saved.ignored : [] };
 }
 
-function saveSettings(settings: Settings): void {
-	fs.writeFileSync(FILE, `${JSON.stringify(settings, null, "\t")}\n`);
-}
+const saveSettings = (settings: Settings) => writeJson(FILE, settings);
 
 /** Proceso osascript que vive lo que la sesión y responde por líneas JSON. */
-class Dictionary {
+class Dictionary implements Guesser {
 	private child?: ChildProcessWithoutNullStreams;
 	private lastId = 0;
 	private readonly waiting = new Map<number, (guesses: Guesses | undefined) => void>();
@@ -89,30 +81,6 @@ class Dictionary {
 	private settle(id: number, guesses: Guesses | undefined): void {
 		this.waiting.get(id)?.(guesses);
 		this.waiting.delete(id);
-	}
-}
-
-/** Guarda la decisión de cada palabra: la corrección, o undefined para dejarla. */
-class Corrector {
-	private readonly decided = new Map<string, Promise<string | undefined>>();
-
-	constructor(private readonly dictionary: Dictionary) {}
-
-	decide(words: Word[]): Promise<(string | undefined)[]> {
-		const missing = [...new Set(words.map(({ word }) => word))].filter((word) => !this.decided.has(word));
-		if (missing.length) {
-			const batch = this.dictionary.guesses(missing);
-			for (const word of missing) {
-				const decision = batch.then((guesses) => {
-					if (!guesses) throw new Error("el diccionario no respondió");
-					return accentFix(word, guesses[word] ?? []);
-				});
-				this.decided.set(word, decision);
-				// Un fallo no se guarda: la palabra se vuelve a consultar en la siguiente revisión.
-				decision.catch(() => this.decided.delete(word));
-			}
-		}
-		return Promise.all(words.map(({ word }) => this.decided.get(word)!.catch(() => undefined)));
 	}
 }
 
@@ -164,8 +132,7 @@ class AutocorrectEditor extends CustomEditor {
 	private review(): void {
 		const text = this.getText();
 		const cursor = this.cursorOffset();
-		// La palabra pegada al cursor se está escribiendo todavía.
-		const words = proseWords(text).filter((word) => word.start + word.word.length !== cursor && this.eligible(word));
+		const words = proseWords(text).filter((word) => !touchesCursor(word, cursor) && this.eligible(word));
 		if (words.length) void this.correct(words);
 	}
 
@@ -177,7 +144,7 @@ class AutocorrectEditor extends CustomEditor {
 		const fixes = words.flatMap((word, index) => {
 			const correction = corrections[index];
 			const intact = present.has(`${word.start}:${word.word}`);
-			return correction && intact && word.start + word.word.length !== cursor && this.eligible(word) ? [{ ...word, correction }] : [];
+			return correction && intact && !touchesCursor(word, cursor) && this.eligible(word) ? [{ ...word, correction }] : [];
 		});
 		if (fixes.length) this.replace(applyFixes(current, fixes, cursor), fixes);
 	}

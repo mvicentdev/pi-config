@@ -1,4 +1,3 @@
-/** Estado del panel de subagentes: index.ts lo alimenta con eventos y panel.ts lo dibuja. */
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export type SessionEvent = AgentSessionEvent;
@@ -15,7 +14,7 @@ export interface Row {
 	tokens: number;
 	/** Herramientas en ejecución, por id de llamada. */
 	activeTools: Map<string, string>;
-	/** Vista previa de la primera línea no vacía del mensaje. */
+	/** Primera línea no vacía del mensaje, hasta 160 caracteres. */
 	text: string;
 	frozen: boolean;
 	error?: string;

@@ -1,7 +1,6 @@
-// Vista previa de la barra con datos simulados, sin pi ni llamadas al modelo:
+// Vista previa de la barra con datos simulados, sin pi ni modelo. Lee los temas de Ghostty:
 //   node --no-warnings extensions/status-line/preview.ts [ancho] ["tema de Ghostty"]
-// Pinta la barra por defecto y con todo activo, en 1 y 2 líneas, y comprueba que los temas de
-// Ghostty instalados se leen. pi solo carga index.ts, así que este fichero no le afecta.
+// pi solo carga index.ts, así que este fichero no le afecta.
 import { execSync } from "node:child_process";
 import { registerHooks } from "node:module";
 import { pathToFileURL } from "node:url";

@@ -1,10 +1,6 @@
-/**
- * Herramienta `advisor`, al estilo del patrón asesor de Anthropic: el modelo ejecutor consulta a
- * un modelo más capaz (Fable) solo en los momentos que deciden el resultado, sin pagarlo en cada
- * paso. El asesor recibe la conversación de la rama actual y la pregunta, y no llama a
- * herramientas. Su consumo va en el `usage` del resultado para que los totales de la sesión lo
- * cuenten. El modelo se lee de advisor.json en cada consulta.
- */
+// Patrón asesor de Anthropic: el ejecutor consulta a un modelo más capaz (Fable) solo en los pasos decisivos.
+// El asesor ve la rama actual, no llama a herramientas y su consumo va en `usage` para que los totales lo cuenten.
+// El modelo se lee de advisor.json en cada consulta.
 import { Type } from "@earendil-works/pi-ai";
 import { convertToLlm, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import fs from "node:fs";

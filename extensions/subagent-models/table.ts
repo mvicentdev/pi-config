@@ -3,7 +3,6 @@ export type Table = Record<string, Record<string, Entry>>;
 
 export const INHERIT = "inherit";
 
-/** `model` con su proveedor; un modelo ausente o "inherit" queda como "inherit". */
 export const qualified = (provider: string, model?: string) =>
 	!model || model === INHERIT ? INHERIT : model.includes("/") ? model : `${provider}/${model}`;
 

@@ -1,11 +1,6 @@
-/**
- * Ancho máximo de pi, centrado. Pi compone cada línea con `TuiMainScreen.render(ancho)`: aquí se
- * compone con el ancho máximo y se antepone el margen que centra. En pantalla completa (`TuiAltScreen`,
- * modo por defecto desde pi 1.2) el terminal informa del ancho máximo, la salida se desplaza con el
- * margen y los clics de ratón lo descuentan.
- * `/max-width 120` lo fija, `left` pasa al 100 % alineado a la izquierda, `center` vuelve al ancho
- * guardado y `off` lo quita. Se guarda en max-width.json.
- */
+// Ancho máximo centrado: `TuiMainScreen.render(ancho)` se llama con el máximo y se antepone el margen.
+// En pantalla completa (`TuiAltScreen`, por defecto desde pi 1.2) el terminal informa del máximo,
+// la salida se desplaza con el margen y los clics lo descuentan.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TuiAltScreen, TuiMainScreen } from "@earendil-works/pi-tui";
 import fs from "node:fs";
@@ -30,8 +25,7 @@ TuiMainScreen.prototype.render = function (width: number) {
 	const pad = " ".repeat(padOf(width));
 	return state.original.call(this, state.columns).map((line: string) => pad + line);
 };
-// Las ventanas superpuestas (ask_user_question, /btw…) se resuelven sobre la columna y se
-// desplazan con el mismo margen.
+// Las ventanas superpuestas se resuelven sobre la columna y se desplazan con el mismo margen.
 (TuiMainScreen.prototype as any).resolveOverlayLayout = function (options: unknown, height: number, width: number, rows: number) {
 	if (state.left || !state.columns || width <= state.columns) return state.originalLayout.call(this, options, height, width, rows);
 	const layout = state.originalLayout.call(this, options, height, state.columns, rows);

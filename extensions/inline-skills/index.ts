@@ -9,7 +9,7 @@ function isEscaped(text: string, index: number): boolean {
   return slashes % 2 === 1;
 }
 
-// A small literal-span scanner, not a Markdown parser. Keep offsets and newlines intact.
+// Un buscador de tramos literales, no un parser de Markdown. Conserva los desplazamientos y los saltos de línea.
 function maskCode(text: string): string {
   const spans = /^ {0,3}(`{3,}|~{3,})[^\n]*(?:\n|$)|`+/gm;
   let masked = "";
@@ -55,7 +55,7 @@ export function inlineSkillProvider(current: AutocompleteProvider, getCommands: 
     triggerCharacters: current.triggerCharacters,
     async getSuggestions(lines, cursorLine, cursorCol, options) {
       const prefix = cursorPrefix(lines, cursorLine, cursorCol);
-      // Pi's ordinary first-line command popup and fuzzy matching stay unchanged.
+      // El menú normal de comandos de la primera línea y su búsqueda aproximada siguen igual.
       if (!prefix || (cursorLine === 0 && cursorCol === prefix.length && !options.force)) {
         return current.getSuggestions(lines, cursorLine, cursorCol, options);
       }
@@ -64,7 +64,7 @@ export function inlineSkillProvider(current: AutocompleteProvider, getCommands: 
         .map((command) => ({ value: command.name, label: `/${command.name}`, description: command.description }));
       if (items.length === 0) return current.getSuggestions(lines, cursorLine, cursorCol, options);
       for (const item of items) owned.add(item);
-      // Pi submits on Enter when the prefix starts with "/"; leaving the slash out keeps Enter as select.
+      // Pi envía el mensaje con Enter si el prefijo empieza por "/". Sin la barra, Enter elige.
       return { items, prefix: prefix.slice(1) };
     },
     applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
@@ -83,7 +83,7 @@ export function inlineSkillProvider(current: AutocompleteProvider, getCommands: 
   };
 }
 
-// Editor internals of pi-tui: it opens the popup by itself only for "/" at the start of the message.
+// Internos del editor de pi-tui: abre el menú por sí mismo solo con "/" al inicio del mensaje.
 type EditorInternals = {
   state: { lines: string[]; cursorLine: number; cursorCol: number };
   autocompleteState: unknown;
@@ -92,7 +92,7 @@ type EditorInternals = {
 };
 const ORIGINAL_HANDLE_INPUT = Symbol.for("inline-skills.handleInput");
 
-// Patching the prototype covers the default editor and any custom editor; /reload rewraps the original.
+// Parchear el prototipo cubre el editor por defecto y cualquier editor propio. /reload reenvuelve el original.
 export function openSkillListWhileTyping(editorClass: { prototype: object } = Editor): void {
   const prototype = editorClass.prototype as Record<symbol | string, unknown>;
   const original = (prototype[ORIGINAL_HANDLE_INPUT] ??= prototype.handleInput) as (this: EditorInternals, data: string) => void;
@@ -106,14 +106,14 @@ export function openSkillListWhileTyping(editorClass: { prototype: object } = Ed
 }
 
 export function expandInlineSkills(text: string, commands: SlashCommandInfo[], notifyError: (message: string) => void): string {
-  // Never interpret references inside previously expanded instructions.
+  // Nunca interpreta referencias dentro de instrucciones ya expandidas.
   if (/<skill(?:\s|>)/.test(text)) return text;
   const known = new Map(skillCommands(commands).map((command) => [`/${command.name}`, command]));
-  // Bare means whitespace-delimited: quotes, escapes, paths and punctuation remain literal.
+  // Una referencia sola va delimitada por espacios. Comillas, escapes, rutas y puntuación quedan literales.
   const invocations = [...maskCode(text).matchAll(/(?:^|(?<=\s))\/skill:[\w-]+(?=\s|$)/g)]
     .filter((match) => known.has(match[0]));
   if (invocations.length === 0) return text;
-  // Native expansion understands a single leading, single-line invocation.
+  // La expansión nativa entiende una sola invocación al inicio y en una línea.
   if (invocations.length === 1 && invocations[0].index === 0 && !/[\r\n]/.test(text)
     && (text.length === invocations[0][0].length || text[invocations[0][0].length] === " ")) return text;
 

@@ -70,7 +70,7 @@ export async function openSettings(ctx: ExtensionContext, settings: Settings, on
 
 const NAVIGATION = ["tui.select.up", "tui.select.down", "tui.select.pageUp", "tui.select.pageDown", "tui.select.confirm", "tui.select.cancel"] as const;
 
-// Lista de paletas con búsqueda por subcadena. Al salir con Esc se deshace la vista previa.
+// Al salir con Esc se deshace la vista previa.
 function themePicker(current: string, preview: (value: string) => void, close: (value?: string) => void, requestRender: () => void): Component {
 	const all = [PI_PALETTE, ACTIVE_PALETTE, ...listThemes()];
 	const input = new Input({ prompt: "Buscar: " });

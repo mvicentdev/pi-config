@@ -1,18 +1,11 @@
 /**
- * Modelo y esfuerzo de razonamiento de cada subagente según el proveedor de la sesión:
+ * Modelo y razonamiento de cada subagente según el proveedor de la sesión:
  * `{ "<proveedor>": { "<agente>": { "model": "<id>", "thinking": "<nivel>" } } }`.
- * La base común es el subagent-models.json de este paquete; el del usuario en su
- * ~/.pi/agent, si existe, tiene la misma forma y solo lleva lo que cambia: cada campo que declare
- * pisa al de la base para ese proveedor y agente, y el resto se hereda de ella.
- * Niveles: off, minimal, low, medium, high, xhigh, max (pi rebaja los que el modelo no admite).
- * Un `model` sin proveedor se busca en el de la sesión; uno como "openai-codex/gpt-6-sol" fija el suyo,
- * así cada subagente puede ir a un proveedor distinto (que necesita sus credenciales en auth.json).
- * Cuando el orquestador lanza un agente con la herramienta `Agent`, la tabla manda: cada campo que
- * fija sustituye al que indique la llamada. Un campo ausente o "inherit" deja el de la llamada o, sin
- * él, el de la sesión. Los ficheros de agents/ no llevan `model` ni `thinking`, porque pi-subagents
- * los antepone a la llamada y anularían la tabla. Se lee en cada llamada: los cambios valen sin reiniciar.
- * `/subagent-models` elige agente, modelo (entre los que tienen credenciales) y razonamiento para el
- * proveedor de la sesión, y guarda en el fichero del usuario solo lo que difiere de la base.
+ * La base es el subagent-models.json de este paquete. El de ~/.pi/agent, si existe, pisa la base campo a campo.
+ * Un `model` sin proveedor usa el de la sesión. Uno como "openai-codex/gpt-6-sol" fija el suyo y necesita sus credenciales en auth.json.
+ * Cada campo que fija la tabla sustituye al de la llamada a `Agent`. Un campo ausente o "inherit" deja el de la llamada o, sin él, el de la sesión.
+ * Los ficheros de agents/ no llevan `model` ni `thinking`: pi-subagents los antepone a la llamada y anularían la tabla.
+ * Se lee en cada llamada, sin reiniciar. pi rebaja los niveles que el modelo no admite.
  */
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import { DynamicBorder, type ExtensionAPI, type ExtensionCommandContext, getSelectListTheme } from "@earendil-works/pi-coding-agent";

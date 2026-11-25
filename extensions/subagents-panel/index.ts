@@ -181,7 +181,6 @@ export default function (pi: ExtensionAPI) {
 		const rows = roster.visible();
 		if (!rows.length) { leaveSelection(); return; }
 		if (selected === undefined) {
-			// Como en Claude Code: ↓ con el prompt vacío entra en la lista.
 			if (!matchesKey(data, "down") || ctx?.ui.getEditorText() !== "") return;
 			selected = 0;
 			tui?.requestRender();

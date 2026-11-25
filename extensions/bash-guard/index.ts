@@ -1,10 +1,6 @@
-/**
- * Bloquea en bash la lectura de ficheros de un repositorio, para que el agente use read, grep y find.
- * Esas salidas llenaban el contexto sin el límite ni la ordenación de read, grep y find, y cada llamada las releía de la caché.
- * Fuera de un repositorio fff no indexa, y la orden corre.
- * El aviso dice que nada corrió, para que el agente no compruebe qué se ejecutó.
- * El prompt pide rutas absolutas porque los `cd` a otra copia causaban la mayoría de los bloqueos.
- */
+// Bloquea en bash leer ficheros de un repositorio: llenaba el contexto sin límite y cada llamada lo releía de la caché.
+// Fuera de un repositorio fff no indexa y la orden corre. El aviso dice que nada corrió, para que el agente no lo compruebe.
+// El prompt pide rutas absolutas porque los `cd` a otra copia causaban la mayoría de los bloqueos.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { blockReason, fileCommand } from "./guard.ts";
 

@@ -49,7 +49,7 @@ const SEVERITY_LABELS: Readonly<Record<"hard" | "soft", string>> = { hard: "bloq
 
 // PHP no figura en la tabla del paquete: sin esto el motor revisaría el código como prosa.
 const PHP: PathClassification = { kind: "slash-source", sourceDialect: "general" };
-// Lo que no se revisa. El código de terceros (vendor) conserva sus comentarios, que no siguen estas reglas.
+// El código de terceros (vendor) conserva sus comentarios, que no siguen estas reglas.
 const SKIPPED: PathClassification = { kind: "prose-file", sourceDialect: "general", skipped: true };
 // Notas temporales y artefactos: el usuario no los lee como documento.
 const SCRATCH_PREFIXES = ["/tmp/", "/private/tmp/"];
@@ -236,7 +236,7 @@ function createGatedEditTool(cwd: string, state: SessionState) {
 	return { ...definition, execute };
 }
 
-// Tope de un informe o un estado. Los demás topes (60 y 40) están en AGENTS.md y en lengthFeedback.
+// Tope de un informe o un estado. Los demás topes (60 y 40) están en feedback-reminder/FEEDBACK.md y en lengthFeedback.
 export const MAX_REPLY_PROSE_WORDS = 120;
 
 /** Las palabras de prosa de una respuesta. No cuentan el código, las tablas, el código en línea ni los enlaces. */

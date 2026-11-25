@@ -23,5 +23,3 @@ Answer the question you were given and nothing else, in at most 600 words.
 - Each finding, with its absolute path and line.
 - What you checked and found nothing for.
 - What you could not settle.
-
-This format overrides the Feedback rules of AGENTS.md.

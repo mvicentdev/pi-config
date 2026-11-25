@@ -10,5 +10,3 @@ The file `.sources` in that directory records the source of each skill that has 
 - Never edit a skill that has a source, because the next update overwrites it. Write the change as a
   skill of your own instead.
 - Remove a skill by deleting its directory and its line in `.sources`.
-- After an update, report each skill updated with its source, and each one that failed with the
-  output.

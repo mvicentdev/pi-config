@@ -3,8 +3,8 @@
 How workers run in parallel or in their own checkout. The rest of the coordination lives in
 `ORCHESTRATION.md`.
 
-- Workers run in parallel only on disjoint files, or each in its own checkout once the user has
-  approved it.
+- Workers run in parallel only on disjoint files, or each in its own checkout.
+- Three checkouts at most hold work at a time.
 - Before a parallel launch, the main loop writes to the notes file the decisions the workers share:
   names, interfaces and form.
 - A worker's checkout is a worktree the main loop creates before the launch, with the repository's own

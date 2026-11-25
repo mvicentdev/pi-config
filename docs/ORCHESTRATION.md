@@ -24,11 +24,11 @@ below is relative to this file's directory.
 ## Delegate
 
 - Work inline by default, and when in doubt.
-- Deciding or verifying inline takes one parallel batch of at most three calls and about 10k tokens.
+- Deciding or verifying inline takes one parallel batch of at most three calls.
 - Past that, or past about five sequential lookups, one `explorer` maps it and returns path:line
   evidence.
 - One subagent takes one question or one change. Launch each distinct task once, and the independent
-  ones together.
+  ones together in one message.
 - The main loop writes inline a task of one unit that fits in its context with room to spare.
 - It coordinates a task of several units, or one that would fill more than about half of its context.
   It plans the units, hands each independent one to its own `worker` and verifies each result.
@@ -38,11 +38,11 @@ below is relative to this file's directory.
 ## Notes
 
 - The work's temporary directory is a directory under `/tmp` named after the work.
-- The notes file lives there and holds what several subagents share: the map and the agreed decisions.
-  Each worker prompt points to it.
+- The notes file lives there and holds what several subagents share: the map, the agreed decisions
+  and the plan's phases. Each worker prompt points to it.
 - After each write, the main loop updates the notes file or drops it before the next launch.
-- When a subagent reports a fact that breaks the plan, the main loop corrects the notes file. It then
-  steers each background subagent the fact affects.
+- When a subagent reports a fact that breaks the plan, the main loop corrects the notes file before the
+  next launch.
 
 ## Prompt
 
@@ -52,17 +52,15 @@ below is relative to this file's directory.
 - It names the paths of the instructions and skills to read before working, never a summary of them.
 - It tells the subagent to stop and report any fact that breaks the plan.
 - A `verifier` prompt carries the plan's phase or the request, and the base of the diff.
-- A watched worker writes its report to a file. The prompt names that path, in the work's temporary
-  directory. The main loop reads the file itself.
 
 ## Parallel
 
-- The read-only roles run in parallel, in the background unless the host's adapter sets the foreground.
-- One `worker` runs at a time. Open `CHECKOUTS.md` before you launch workers in parallel or a `worker`
-  in its own checkout.
+- Independent subagents run in parallel. Open `CHECKOUTS.md` before you launch workers in parallel or
+  a `worker` in its own checkout.
 - Five subagents at most run at a time. Launch a task once every task it depends on has landed.
-- Wait for the completion notice instead of polling.
-- Steer a subagent that runs in the background only when its boundary changes or it needs a fact just learned.
+- The user watches every launch and its supervision in the main conversation, never in a terminal
+  view. Launch each subagent with `run_in_background: false`, so its progress and result show in the
+  conversation.
 - Resume a finished subagent to follow up in its own context.
 
 ## Verify
@@ -74,6 +72,7 @@ below is relative to this file's directory.
 - When the project has review criteria of its own, the `verifier` prompt names their path. That review
   is the one the project asks for before a go, and it holds for the review of a later fix too.
 - Re-run at least one reported command yourself.
+- The main loop ticks each verified phase in the task's spec, or in the notes file without one.
 - When two reports contradict each other, settle the point against the code before going on.
 - Check each verifier finding against the request and the code. A finding that breaks the request is
   a blocker, and the report names each discarded finding with its reason.
@@ -84,11 +83,7 @@ below is relative to this file's directory.
 
 ## Clean up
 
-- Once the work lands or is discarded, and before reporting it done, remove what was built for it.
-- That covers every checkout, branch, notes file, report file, prompt file, stack, container,
+- Once the work lands or is discarded, and before reporting it done, remove what it built or started.
+- That covers every process, checkout, branch, notes file, prompt file, stack, container,
   volume and image. Use the repository's own cleanup command when it ships one.
 - Only what still holds unshipped work stays, and the report names it.
-
-## Host
-
-- Open `HOSTS.md` before the first subagent of a session, to detect the agentic IDE that hosts the work.

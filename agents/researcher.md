@@ -24,5 +24,3 @@ Answer the question you were given, for the version the project uses, in at most
 - Each source that is not primary, marked as such.
 - Where sources disagree.
 - What you could not confirm.
-
-This format overrides the Feedback rules of AGENTS.md.

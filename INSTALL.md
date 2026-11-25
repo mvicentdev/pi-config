@@ -11,7 +11,7 @@ macOS y en Linux; en Windows no, porque `install.sh` es de bash y usa enlaces si
   `max-width.json`, `autocorrect.json`, `trust.json`, sesiones y temas propios.
 - `sudo`, `/login` y cualquier contraseña los hace el usuario en su terminal; el agente le da el
   comando exacto y espera. Lo mismo vale para lo que haya que hacer con la cuenta de otro usuario.
-- Nada se publica (commit o push) sin que el usuario haya visto el diff y dado el visto bueno.
+- Un commit local no necesita aprobación. El push a `main` espera el visto bueno del usuario, que antes ve los cambios de la rama.
 
 ## 1. Comprobar requisitos
 
@@ -91,8 +91,7 @@ cd /tmp && pi -p --no-session "Responde solo: OK"
 ```
 
 Si el último comando falla porque no hay credenciales, el usuario abre pi y hace `/login`. La
-extensión `autocorrect` solo funciona en macOS y necesita la variable `TYPESAFE_API_KEY`; sin ella,
-avisa de que está inactiva.
+extensión `autocorrect` solo funciona en macOS.
 
 Informa de cada comprobación con su resultado y de lo que quede pendiente del usuario.
 
@@ -110,6 +109,6 @@ git config user.email 142339502+mvicentdev@users.noreply.github.com
 ```
 
 Los paquetes se gestionan con `./packages.sh`, nunca con `npm` directamente. El título del commit
-sigue Conventional Commits, y el push va a `main` después de que el usuario haya visto el diff y dado
-el visto bueno. Cada usuario recibe el cambio con
+sigue Conventional Commits. El push a `main` espera el visto bueno del usuario tras ver los cambios de
+la rama. Cada usuario recibe el cambio con
 `pi update git:github.com/mvicentdev/pi-config`.

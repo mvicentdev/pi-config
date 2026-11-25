@@ -30,5 +30,3 @@ Answer in at most 600 words.
 - Each command you ran, with its result.
 - What you checked without findings.
 - What remains unverified.
-
-This format overrides the Feedback rules of AGENTS.md.

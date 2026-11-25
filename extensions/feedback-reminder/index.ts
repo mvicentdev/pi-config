@@ -1,16 +1,24 @@
 /**
- * Recuerda las reglas de `## Feedback` de AGENTS.md en cada mensaje del usuario. En una sesión
- * larga AGENTS.md queda enterrado bajo la conversación, y el recordatorio junto al mensaje más
- * reciente pesa más. Solo se añade a la copia enviada al modelo (el evento `context` recibe un
- * clon), no a la sesión guardada ni a la pantalla. Va en todos los mensajes del usuario, no solo
- * en el último, para que el prefijo sea idéntico entre turnos y la caché de prompt sirva.
+ * Cómo escribe el agente al usuario. FEEDBACK.md entra en el prompt de sistema.
+ * Un recordatorio acompaña a cada mensaje del usuario, porque en una sesión larga el prompt queda enterrado.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const REMINDER =
-	"<system-reminder>Reply in Castilian Spanish and apply the Feedback rules in AGENTS.md: the first word is the answer, never the subject of the question; no sentence repeats another; at most 40 words of prose for a question, 120 for a report, status or proposal and 60 for finished work or a request for go, with detail only after the user says they do not understand, plain words over inline code, a few words for each term the user has not met, and the content of an earlier item instead of its number; cut each report to the parts asked for and what the user needs to decide or act, keeping pending decisions whole, without rule names, the finding's file or process; a request for go states the behaviour change, what is left, the real run and the review, lists the source files to read, and asks once for commit, push and branch.</system-reminder>";
+const DIRECTORY = dirname(fileURLToPath(import.meta.url));
+
+export const FEEDBACK = readFileSync(join(DIRECTORY, "FEEDBACK.md"), "utf8").trim().replaceAll("{dir}", DIRECTORY);
+
+export const REMINDER =
+	"<system-reminder>Reply in Castilian Spanish and apply the Feedback rules of your instructions: the answer first, each fact once, plain words, and at most 40 words of prose for an answer or a question, 60 for finished work or a request for go and 120 for any other report.</system-reminder>";
 
 export default function feedbackReminder(pi: ExtensionAPI) {
+	pi.on("before_agent_start", (event) => ({ systemPrompt: `${event.systemPrompt}\n\n${FEEDBACK}` }));
+
+	// `context` recibe un clon: el recordatorio no llega a la sesión guardada ni a la pantalla.
+	// En todos los mensajes, no solo en el último: un prefijo idéntico entre turnos conserva la caché de prompt.
 	pi.on("context", (event) => {
 		for (const message of event.messages) {
 			if (message.role !== "user") continue;

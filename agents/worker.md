@@ -27,6 +27,3 @@ You are the worker of an orchestrator that reviews and verifies everything you h
 - One line per file you changed.
 - The test command you ran, with its result and any failing output.
 - What is left undone.
-
-When your prompt names a report file, write the report there. Hand back its path with a
-three-sentence summary.

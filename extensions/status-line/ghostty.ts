@@ -96,7 +96,7 @@ function mix(a: string, b: string, amount: number): string {
 }
 
 /** Tema de pi completo derivado de 16 colores ANSI más fondo y texto. */
-export function toPiTheme(theme: GhosttyTheme, accent: string, name: string) {
+function toPiTheme(theme: GhosttyTheme, accent: string, name: string) {
 	const p = theme.palette;
 	const vars = {
 		bg: theme.background,

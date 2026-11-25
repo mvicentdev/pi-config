@@ -1,6 +1,5 @@
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
-export type SessionEvent = AgentSessionEvent;
 export type Status = "running" | "completed" | "steered" | "aborted" | "stopped" | "error";
 
 export interface Row {
@@ -62,12 +61,8 @@ export class Roster {
 		row.error = detail.error;
 	}
 
-	get(id: string): Row | undefined {
-		return this.rows.get(id);
-	}
-
 	/** Aplica un evento de la sesión del agente; devuelve si cambió algo visible. */
-	apply(id: string, event: SessionEvent): boolean {
+	apply(id: string, event: AgentSessionEvent): boolean {
 		const row = this.rows.get(id);
 		if (!row) return false;
 		switch (event.type) {

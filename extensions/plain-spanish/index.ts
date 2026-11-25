@@ -36,14 +36,36 @@ const ENGLISH_ONLY_RULES: Partial<Record<RuleId, RuleSetting>> = {
 	"verb-perfect": "off",
 };
 
-const ACTIVE_RULE_IDS: readonly ActiveRuleId[] = ["sentence-length", "paragraph-length", "semicolon", "invalid-suppression"];
+interface ActiveRule {
+	summary: (maxWords: number) => string;
+	message: (violation: Violation, count: string | undefined, max: string | undefined) => string;
+	fix: string;
+}
 
-const FIXES: Readonly<Record<ActiveRuleId, string>> = {
-	"sentence-length": "Divide la frase en frases más cortas.",
-	"paragraph-length": "Divide el párrafo en párrafos más cortos.",
-	semicolon: "Cambia el punto y coma por un punto y escribe dos frases.",
-	"invalid-suppression": "Nombra uno o más identificadores de regla registrados.",
+const ACTIVE_RULES: Readonly<Record<ActiveRuleId, ActiveRule>> = {
+	"sentence-length": {
+		summary: (maxWords) => `Escribe frases de ${maxWords} palabras como máximo.`,
+		message: (_violation, count, max) => `La frase tiene ${count} palabras. El máximo es ${max}.`,
+		fix: "Divide la frase en frases más cortas.",
+	},
+	"paragraph-length": {
+		summary: () => "Escribe seis frases como máximo en cada párrafo.",
+		message: (_violation, count, max) => `El párrafo tiene ${count} frases. El máximo es ${max}.`,
+		fix: "Divide el párrafo en párrafos más cortos.",
+	},
+	semicolon: {
+		summary: () => "No uses punto y coma. Escribe dos frases.",
+		message: () => "No uses punto y coma.",
+		fix: "Cambia el punto y coma por un punto y escribe dos frases.",
+	},
+	"invalid-suppression": {
+		summary: () => "Nombra identificadores de regla registrados en las directivas de supresión.",
+		message: (violation) => `Directiva de supresión no válida: ${violation.message}`,
+		fix: "Nombra uno o más identificadores de regla registrados.",
+	},
 };
+
+const ACTIVE_RULE_IDS = Object.keys(ACTIVE_RULES) as ActiveRuleId[];
 
 const SEVERITY_LABELS: Readonly<Record<"hard" | "soft", string>> = { hard: "bloquea", soft: "avisa" };
 
@@ -69,22 +91,11 @@ function ruleSetting(config: SteConfig, ruleId: RuleId): RuleSetting {
 	return config.rules?.[ruleId] ?? DEFAULT_SEVERITIES[ruleId];
 }
 
-function ruleSummary(config: SteConfig, ruleId: ActiveRuleId): string {
-	const maxWords = config.maxSentenceWords ?? DEFAULT_MAX_SENTENCE_WORDS;
-	const summaries: Readonly<Record<ActiveRuleId, string>> = {
-		"sentence-length": `Escribe frases de ${maxWords} palabras como máximo.`,
-		"paragraph-length": "Escribe seis frases como máximo en cada párrafo.",
-		semicolon: "No uses punto y coma. Escribe dos frases.",
-		"invalid-suppression": "Nombra identificadores de regla registrados en las directivas de supresión.",
-	};
-	return summaries[ruleId];
-}
-
 function systemPromptRules(config: SteConfig): string {
 	const rules = ACTIVE_RULE_IDS.flatMap((ruleId) => {
 		const setting = ruleSetting(config, ruleId);
 		if (setting === "off") return [];
-		return [`- [${SEVERITY_LABELS[setting]}] ${ruleSummary(config, ruleId)}`];
+		return [`- [${SEVERITY_LABELS[setting]}] ${ACTIVE_RULES[ruleId].summary(config.maxSentenceWords ?? DEFAULT_MAX_SENTENCE_WORDS)}`];
 	});
 	return [
 		"## Reglas de escritura",
@@ -101,26 +112,15 @@ function systemPromptRules(config: SteConfig): string {
 
 function violationMessage(violation: Violation): string {
 	const [count, max] = violation.message.match(/\d+/g) ?? [];
-	const messages: Readonly<Record<ActiveRuleId, string>> = {
-		"sentence-length": `La frase tiene ${count} palabras. El máximo es ${max}.`,
-		"paragraph-length": `El párrafo tiene ${count} frases. El máximo es ${max}.`,
-		semicolon: "No uses punto y coma.",
-		"invalid-suppression": `Directiva de supresión no válida: ${violation.message}`,
-	};
-	return messages[violation.ruleId as ActiveRuleId] ?? violation.message;
-}
-
-function violationDetails(violations: readonly Violation[]): string {
-	return violations
-		.map((violation) => {
-			const fix = FIXES[violation.ruleId as ActiveRuleId] ?? "";
-			return `- línea ${violation.line}, columna ${violation.column} [${violation.ruleId}]: ${violationMessage(violation)} ${fix}`.trimEnd();
-		})
-		.join("\n");
+	return ACTIVE_RULES[violation.ruleId as ActiveRuleId]?.message(violation, count, max) ?? violation.message;
 }
 
 function formatViolations(heading: string, violations: readonly Violation[]): string {
-	return `${heading}:\n${violationDetails(violations)}`;
+	const details = violations.map((violation) => {
+		const fix = ACTIVE_RULES[violation.ruleId as ActiveRuleId]?.fix ?? "";
+		return `- línea ${violation.line}, columna ${violation.column} [${violation.ruleId}]: ${violationMessage(violation)} ${fix}`.trimEnd();
+	});
+	return `${heading}:\n${details.join("\n")}`;
 }
 
 function classify(path: string): PathClassification {
@@ -137,8 +137,8 @@ function lintText(state: SessionState, kind: LintKind, text: string, extra: obje
 	return lint(kind, text, { ...state.config, ...extra });
 }
 
-function unavailableReason(state: SessionState): string {
-	return `La revisión de escritura no está disponible: ${state.error ?? "la sesión aún no ha terminado de arrancar"}`;
+function ensureReady(state: SessionState): void {
+	if (!state.ready) throw new Error(`La revisión de escritura no está disponible: ${state.error ?? "la sesión aún no ha terminado de arrancar"}`);
 }
 
 function lintProposedText(state: SessionState, ctx: ExtensionContext, toolCallId: string, path: string, text: string, previousText?: string): void {
@@ -156,7 +156,7 @@ function lintProposedText(state: SessionState, ctx: ExtensionContext, toolCallId
 function lintCommitCommand(state: SessionState, toolCallId: string, command: string): void {
 	const invocations = findCommitInvocations(command);
 	if (invocations.length === 0) return;
-	if (!state.ready) throw new Error(unavailableReason(state));
+	ensureReady(state);
 	const warnings: string[] = [];
 	for (const invocation of invocations) {
 		if (invocation.requiresExplicitMessage) {
@@ -168,10 +168,6 @@ function lintCommitCommand(state: SessionState, toolCallId: string, command: str
 		if (soft.length > 0) warnings.push(formatViolations("Avisos de escritura en el mensaje del commit", soft));
 	}
 	if (warnings.length > 0) state.pendingWarnings.set(toolCallId, warnings.join("\n\n"));
-}
-
-function ensureReady(state: SessionState): void {
-	if (!state.ready) throw new Error(unavailableReason(state));
 }
 
 function createGatedBashTool(cwd: string, state: SessionState) {
@@ -277,9 +273,7 @@ function updateReplyState(state: SessionState, ctx: ExtensionContext, text?: str
 	ctx.ui.setWidget("plain-spanish-reply", [status]);
 }
 
-export default function plainSpanish(pi: ExtensionAPI) {
-	const state: SessionState = { config: {}, enabled: true, ready: false, pendingWarnings: new Map() };
-
+function registerAseCommand(pi: ExtensionAPI, state: SessionState): void {
 	pi.registerCommand("ase", {
 		description: "Activa o desactiva las reglas de escritura, o muestra su estado.",
 		getArgumentCompletions: (prefix) => {
@@ -308,7 +302,9 @@ export default function plainSpanish(pi: ExtensionAPI) {
 			ctx.ui.notify(`Reglas de escritura ${state.enabled ? "activadas" : "desactivadas"}.`, "info");
 		},
 	});
+}
 
+function registerSessionStart(pi: ExtensionAPI, state: SessionState): void {
 	pi.on("session_start", async (_event, ctx) => {
 		state.ready = false;
 		state.error = undefined;
@@ -326,6 +322,12 @@ export default function plainSpanish(pi: ExtensionAPI) {
 			if (ctx.hasUI) ctx.ui.notify(`Las reglas de escritura no arrancan: ${state.error}`, "error");
 		}
 	});
+}
+
+export default function plainSpanish(pi: ExtensionAPI) {
+	const state: SessionState = { config: {}, enabled: true, ready: false, pendingWarnings: new Map() };
+	registerAseCommand(pi, state);
+	registerSessionStart(pi, state);
 
 	pi.on("before_agent_start", (event) => {
 		if (!state.enabled || !state.ready) return undefined;

@@ -32,7 +32,7 @@ export interface Snapshot {
 
 export type Settings = Record<string, string>;
 
-export interface Item {
+interface Item {
 	id: string;
 	group: string;
 	label: string;
@@ -199,7 +199,7 @@ function tone(percent: number | null): string {
 	return percent === null ? "dim" : percent >= 95 ? "error" : percent >= 80 ? "warning" : "accent";
 }
 
-export function formatTokens(count: number): string {
+function formatTokens(count: number): string {
 	if (count < 1000) return `${count}`;
 	if (count < 10_000) return `${(count / 1000).toFixed(1)}k`;
 	if (count < 1_000_000) return `${Math.round(count / 1000)}k`;

@@ -6,7 +6,7 @@ export interface Theme {
 	bold(text: string): string;
 }
 
-export const MAX_ROWS = 6;
+const MAX_ROWS = 6;
 /** Un fotograma por segundo. */
 const SPINNER = ["◐", "◓", "◑", "◒"];
 

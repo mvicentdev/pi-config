@@ -2,9 +2,6 @@
 
 export type Word = { word: string; start: number };
 export type Fix = Word & { correction: string };
-export type JevAnswer = { type: string; choice?: string; probabilities?: Record<string, number> };
-
-export const MIN_PROBABILITY = 0.8;
 
 // Palabra delimitada por espacios o puntuación a ambos lados: así quedan fuera rutas, menciones,
 // dominios, correos e identificadores con guion bajo, punto, barra o dígitos.
@@ -27,16 +24,9 @@ export function proseWords(text: string): Word[] {
 	return words;
 }
 
-/** La corrección que Jev elige con probabilidad suficiente, si no es dejar la palabra como está. */
-export function pickCorrection(word: string, answer: JevAnswer | undefined): string | undefined {
-	const choice = answer?.type === "choice" ? answer.choice : undefined;
-	if (!choice || choice === word || (answer?.probabilities?.[choice] ?? 0) < MIN_PROBABILITY) return;
-	return choice;
-}
-
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "");
 
-/** El único candidato que solo cambia tildes o eñes: se corrige sin preguntar a Jev. */
+/** El único candidato que solo cambia tildes o eñes. Con dos o más, la palabra se deja. */
 export function accentFix(word: string, guesses: string[]): string | undefined {
 	const same = guesses.filter((guess) => guess !== word && fold(guess) === fold(word));
 	return same.length === 1 ? same[0] : undefined;

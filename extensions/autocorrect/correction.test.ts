@@ -1,7 +1,7 @@
 // node --test extensions/autocorrect/correction.test.ts
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { accentFix, applyFixes, pickCorrection, proseWords } from "./correction.ts";
+import { accentFix, applyFixes, proseWords } from "./correction.ts";
 
 const words = (text: string) => proseWords(text).map(({ word }) => word);
 
@@ -20,14 +20,6 @@ test("deja en paz rutas, comandos, siglas e identificadores", () => {
 	assert.deepEqual(words("!ls tambien"), []);
 });
 
-test("acepta la elección de Jev solo si cambia la palabra con probabilidad suficiente", () => {
-	const answer = (choice: string, probability: number) => ({ type: "choice", choice, probabilities: { [choice]: probability } });
-	assert.equal(pickCorrection("tambien", answer("también", 0.95)), "también");
-	assert.equal(pickCorrection("tambien", answer("también", 0.6)), undefined);
-	assert.equal(pickCorrection("mergear", answer("mergear", 0.99)), undefined);
-	assert.equal(pickCorrection("tambien", undefined), undefined);
-});
-
 test("aplica las correcciones y recoloca el cursor", () => {
 	const fixes = [
 		{ word: "tambien", start: 0, correction: "también" },
@@ -37,7 +29,7 @@ test("aplica las correcciones y recoloca el cursor", () => {
 	assert.deepEqual(applyFixes("tambien que aver hola", fixes, 3), { text: "también que a ver hola", offset: 3 });
 });
 
-test("corrige sin Jev solo la tilde o la eñe inequívoca", () => {
+test("corrige solo la tilde o la eñe inequívoca", () => {
 	assert.equal(accentFix("tambien", ["también", "cambien"]), "también");
 	assert.equal(accentFix("manana", ["mañana", "mana"]), "mañana");
 	assert.equal(accentFix("qeu", ["que", "leu"]), undefined);

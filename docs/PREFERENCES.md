@@ -7,6 +7,7 @@ What the user keeps constant in everything the agents write, in every project. T
 
 A setting applies every time. A written rule applies only when an agent reads it.
 
+- Look for an established skill before you write a rule of your own, because its author maintains it.
 - Impose a behaviour with a setting, a hook or an extension when one can. Write a rule only for what
   no configuration can impose.
 - Each document holds one responsibility, within 120 lines. A project's entry file holds 60, or the

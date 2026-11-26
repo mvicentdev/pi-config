@@ -47,6 +47,8 @@ A test written after the code proves only what the code already does.
 
 - The worker's prompt copies this section, lists each acceptance criterion and names the notes file.
 - Each behaviour leaves a test that simulates its real use.
+- The worktree takes its dependencies with `git wt step copy-ignored`, which uses no extra disk.
+- Each process starts with `git wt step tether`, so it dies when its worktree is removed.
 - With a specification, the worker writes one test per criterion and sees it fail before the code.
 - Those tests stay as written. The worker reports any change to them, and it is reviewed apart.
 - An open product decision stops the worker. The user's answer joins the decisions, and work goes on.
@@ -111,6 +113,7 @@ Leftover worktrees and processes confuse the next task, so Close runs by itself,
 
 - Walk the register and remove each entry, with the repository's own cleanup command when it ships one.
 - Force a process that will not stop, and report it.
+- Run `git wt step prune` to remove each merged or orphaned worktree left behind.
 - Until the user says discard, every branch and every entry that holds unpublished work stays.
 
 Done when the register holds only such work, and the report names what was removed and kept.

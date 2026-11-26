@@ -40,7 +40,4 @@ A subagent sees only its prompt, so the prompt carries everything the task needs
 - Its done criterion is the command that proves the work.
 - It names the paths of the project's rules and of the skills to read first, never a summary of them.
 - It tells the subagent to stop and report any fact that breaks the plan.
-- A `worker` prompt copies the Build section of `WORKFLOW.md`, with its done line. It lists each
-  acceptance criterion and names the notes file.
-- A `verifier` prompt copies the Review section, and carries what that section reviews against.
-- It also carries the base of the diff and the path of the project's review criteria, when it has some.
+- It copies each rule the task must follow that those paths do not hold.

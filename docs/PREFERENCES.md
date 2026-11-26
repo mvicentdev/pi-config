@@ -12,8 +12,7 @@ A setting applies every time. A written rule applies only when an agent reads it
 - Each document holds one responsibility, within 120 lines. A project's entry file holds 60, or the
   ceiling the project sets.
 - The entry file is always in context. It points to each document, and no document points back to it.
-- Each document is one step away from the entry file, and names another only where its own rule
-  needs it.
+- Each document is one step away from the entry file. It stands alone and names no other document.
 - Each section opens with the human reason for its rules.
 - Each concept keeps one name, and each cited file, section and name exists. After an edit, grep the
   documents for what it renamed or removed.

@@ -43,6 +43,7 @@ Done when each task has its written assignment, and the register lists each work
 
 A test written after the code proves only what the code already does.
 
+- The worker's prompt copies this section, lists each acceptance criterion and names the notes file.
 - Each behaviour leaves a test that simulates its real use.
 - With a specification, the worker writes one test per criterion and sees it fail before the code.
 - Those tests stay as written. The worker reports any change to them, and it is reviewed apart.
@@ -65,6 +66,7 @@ Done when every check exits 0 on the branch to integrate. A failure goes to Corr
 
 The user gives the go on the reviewer's word, so a `verifier` starts without the worker's context.
 
+- Its prompt copies this section, and carries the specification and the base of the diff.
 - It reviews the diff of the branch against the parent branch, criterion by criterion.
 - Without a specification, it reviews the diff against the request and its declared outcome.
 - It gives one verdict per criterion with the test that proves it, and one for the change.

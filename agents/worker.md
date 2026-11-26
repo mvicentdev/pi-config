@@ -5,7 +5,7 @@ tools: "*, ext:pi-fff"
 prompt_mode: replace
 skills: false
 disallowed_tools: ffgrep, fffind
-exclude_extensions: feedback-reminder
+exclude_extensions: feedback-reminder, main-loop-guard
 color: orange
 ---
 

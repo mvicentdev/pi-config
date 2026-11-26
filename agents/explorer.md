@@ -4,7 +4,7 @@ description: Reads code without changing it — locates files and symbols, trace
 tools: read, bash, grep, find, ls, ext:pi-fff
 skills: false
 disallowed_tools: ffgrep, fffind, lsp_fix
-exclude_extensions: feedback-reminder
+exclude_extensions: feedback-reminder, main-loop-guard
 color: cyan
 ---
 

@@ -6,7 +6,12 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { agentFromToolResult, agentTypes, applyAgent, changesFiles, PUBLISH_REASON, publishes, rebuild, ReviewState } from "./review.ts";
 
-export function createReviewGuard(now: () => number = Date.now) {
+// pi-subagents publica su gestor en este registro global. getRecord da el estado vivo de un agente del bucle principal.
+const SUBAGENTS = Symbol.for("pi-subagents:manager");
+type Subagents = { getRecord?: (id: string) => { status?: unknown } | undefined };
+const subagentsRegistry = () => (globalThis as Record<symbol, unknown>)[SUBAGENTS];
+
+export function createReviewGuard(now: () => number = Date.now, registry: () => unknown = subagentsRegistry) {
 	return function reviewGuard(pi: ExtensionAPI) {
 		let state = new ReviewState();
 		// Una llamada que cambia ficheros y aún corre, en paralelo con el push.
@@ -16,6 +21,17 @@ export function createReviewGuard(now: () => number = Date.now) {
 		// El tipo de cada agente por su id. Un Agent con resume reanuda ese tipo, no el de subagent_type.
 		let types = new Map<string, string>();
 		const isWorker = (type: unknown) => String(type).toLowerCase() === "worker";
+		// Un worker en cola que se para, o uno que se para al crear su worktree, no avisa al acabar.
+		// Al publicar, pi-subagents dice cuáles siguen en cola o en marcha. Sin registro cuentan solo los eventos.
+		const workersRunning = () => {
+			const subagents = registry() as Subagents | undefined;
+			if (typeof subagents?.getRecord !== "function") return workers.size > 0;
+			for (const id of workers) {
+				const status = subagents.getRecord(id)?.status;
+				if (status !== "running" && status !== "queued") workers.delete(id);
+			}
+			return workers.size > 0;
+		};
 
 		// Al empezar, recargar o cambiar de rama, el estado sale de las entradas de la rama actual.
 		// Los workers en marcha siguen en marcha: solo su final los quita.
@@ -35,7 +51,7 @@ export function createReviewGuard(now: () => number = Date.now) {
 			const worker = event.toolName === "Agent" && isWorker(resumed ?? input.subagent_type);
 			if (changesFiles(event.toolName, input) || worker) running.add(event.toolCallId);
 			if (event.toolName !== "bash" || !publishes(String(input.command ?? ""))) return undefined;
-			return state.unreviewed() || running.size > 0 || workers.size > 0 ? { block: true, reason: PUBLISH_REASON } : undefined;
+			return state.unreviewed() || running.size > 0 || workersRunning() ? { block: true, reason: PUBLISH_REASON } : undefined;
 		});
 
 		pi.on("tool_result", (event) => {

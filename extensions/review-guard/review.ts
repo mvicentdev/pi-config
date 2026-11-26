@@ -61,7 +61,8 @@ export function agentFromToolResult(details: unknown, content: unknown, at: numb
 	const fields = (details ?? {}) as Record<string, unknown>;
 	if (typeof fields.subagentType !== "string" || typeof fields.status !== "string") return null;
 	const duration = typeof fields.durationMs === "number" ? fields.durationMs : 0;
-	const report = textOf(content).replace(/^[\s\S]*?^Agent completed in [^\n]*\n\n/m, "");
+	// Solo al principio del texto: un agente reanudado no lleva cabecera y su informe puede repetirla en otra línea.
+	const report = textOf(content).replace(/^(?:Note: [^\n]*\n\n)?Agent completed in [^\n]*\n\n/, "");
 	return { type: fields.subagentType, status: fields.status, report, startedAt: at - duration, completedAt: at };
 }
 
@@ -124,11 +125,12 @@ const STRIP_LITERALS = (command: string) =>
 const SEGMENTS = /&&|\|\||[;&|\n(){}`]|\$\(/;
 const LEADING = new Set(["!", "then", "do", "else", "elif", "if", "while", "until", "time", "command", "builtin", "exec", "env", "nohup", "xargs"]);
 // Prefijos que lanzan otra orden. Sus opciones con valor llevan el valor en la palabra siguiente.
-const WRAPPERS: Record<string, { values: ReadonlySet<string>; operand: boolean }> = {
-	timeout: { values: new Set(["-s", "--signal", "-k", "--kill-after"]), operand: true },
-	nice: { values: new Set(["-n", "--adjustment"]), operand: false },
-	sudo: { values: new Set(["-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt", "-C", "--close-from", "-D", "--chdir", "-r", "--role", "-t", "--type", "-U", "--other-user", "-T", "--command-timeout"]), operand: false },
-};
+// Un Map y no un objeto: una palabra como toString no debe dar con el prototipo.
+const WRAPPERS = new Map<string, { values: ReadonlySet<string>; operand: boolean }>([
+	["timeout", { values: new Set(["-s", "--signal", "-k", "--kill-after"]), operand: true }],
+	["nice", { values: new Set(["-n", "--adjustment"]), operand: false }],
+	["sudo", { values: new Set(["-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt", "-C", "--close-from", "-D", "--chdir", "-r", "--role", "-t", "--type", "-U", "--other-user", "-T", "--command-timeout"]), operand: false }],
+]);
 // Opciones globales de git que llevan el valor en la palabra siguiente.
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env", "--exec-path"]);
 // gh y glab eligen el repositorio con -R o --repo.
@@ -148,7 +150,7 @@ function segmentPublishes(segment: string): boolean {
 	const words = segment.trim().split(/\s+/).filter(Boolean);
 	for (;;) {
 		while (words.length && (LEADING.has(words[0]) || /^\w+=/.test(words[0]) || words[0].startsWith("-"))) words.shift();
-		const wrapper = WRAPPERS[words[0]?.replace(/^.*\//, "")];
+		const wrapper = WRAPPERS.get(words[0]?.replace(/^.*\//, "") ?? "");
 		if (!wrapper) break;
 		words.shift();
 		while (words[0]?.startsWith("-")) if (wrapper.values.has(words.shift() as string)) words.shift();

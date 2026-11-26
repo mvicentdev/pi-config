@@ -69,6 +69,10 @@ test("no confunde otras órdenes con publicar", () => {
 		"sudo -u deploy git fetch",
 		"gh -R o/r pr list",
 		"glab -R o/r mr view 12",
+		"toString -x",
+		"constructor git push",
+		"hasOwnProperty --x git push",
+		"__proto__ git push",
 		"",
 	]) {
 		assert.equal(publishes(command), false, command);
@@ -173,6 +177,9 @@ test("el estado rehecho lee el resultado de un Agent en primer plano, también r
 	);
 	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms.\n\nVerdict: pass with reservations", 3)]).unreviewed(), true);
 	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms.\n\nFindings.\n\nVerdict: pass", 3)]).unreviewed(), true);
+	// Un agente reanudado devuelve el informe sin cabecera. Una línea posterior igual a la cabecera no cuenta.
+	assert.equal(rebuild([...edited, ...verifier("c2", "Verdict: fail\n\nAgent completed in 1s.\n\nVerdict: pass", 3)]).unreviewed(), true);
+	assert.equal(rebuild([...edited, ...verifier("c2", "Findings.\nAgent completed in 1s.\n\nVerdict: pass", 3)]).unreviewed(), true);
 	// Una reanudación ignora subagent_type: details lleva el tipo real.
 	const resumedWorker = [
 		call("c3", "Agent", { subagent_type: "verifier", resume: "w1", prompt: "fix" }, 20),

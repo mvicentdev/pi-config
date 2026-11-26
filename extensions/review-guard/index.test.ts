@@ -13,12 +13,13 @@ const ROOT = join(DIRECTORY, "..", "..");
 const REFUSED = { block: true, reason: PUBLISH_REASON };
 
 // Un pi de mentira que guarda lo que la extensión registra, con un reloj que avanza en cada lectura.
-function session(entries: unknown[] = []) {
+// Sin registro, la extensión se fía solo de los eventos de pi-subagents.
+function session(entries: unknown[] = [], registry?: () => unknown) {
 	const handlers = new Map<string, (event: unknown, ctx: unknown) => unknown>();
 	const listeners = new Map<string, (data: unknown) => void>();
 	const emit = (name: string, data: unknown) => listeners.get(name)?.(data);
 	let clock = 1000;
-	createReviewGuard(() => ++clock)({
+	createReviewGuard(() => ++clock, registry ?? (() => undefined))({
 		on: (name: string, handler: never) => handlers.set(name, handler),
 		events: { on: (name: string, listener: never) => listeners.set(name, listener) },
 	} as never);
@@ -170,6 +171,27 @@ test("un worker en segundo plano aún en marcha impide publicar hasta que acaba"
 	// Un verifier en segundo plano no impide publicar.
 	s.emit("subagents:created", { id: "v9", type: "verifier", description: "review", isBackground: true });
 	assert.equal(s.push(), undefined);
+});
+
+// Un worker en cola que se para no avisa con subagents:completed ni subagents:failed.
+// Tampoco uno aislado en un worktree que se para mientras se crea su copia.
+test("un worker que pi-subagents ya no tiene en marcha deja de impedir publicar", () => {
+	const records = new Map<string, { status: string }>();
+	const s = session([], () => ({ getRecord: (id: string) => records.get(id) }));
+	records.set("w1", { status: "queued" });
+	s.emit("subagents:created", { id: "w1", type: "worker", description: "fix", isBackground: true });
+	assert.deepEqual(s.push(), REFUSED);
+	records.set("w1", { status: "running" });
+	assert.deepEqual(s.push(), REFUSED);
+	records.set("w1", { status: "stopped" });
+	assert.equal(s.push(), undefined);
+	// Un registro que pi-subagents ya ha borrado tampoco corre.
+	s.emit("subagents:started", { id: "w2", type: "worker", description: "gone" });
+	assert.equal(s.push(), undefined);
+	// Un registro sin getRecord no sirve: cuentan los eventos.
+	const t = session([], () => ({}));
+	t.emit("subagents:started", { id: "w3", type: "worker", description: "fix" });
+	assert.deepEqual(t.push(), REFUSED);
 });
 
 test("un worker reanudado en primer plano impide publicar mientras corre", () => {

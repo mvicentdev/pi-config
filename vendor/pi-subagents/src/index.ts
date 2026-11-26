@@ -32,8 +32,8 @@ import { describeModel, type ModelRegistry, resolveModel } from "./model-resolve
 import { checkModelScope, isScopeModelsEnabled, setScopeModelsEnabled } from "./model-scope.js";
 import { getMaxSubagentDepth, setMaxSubagentDepth } from "./nested-tools.js";
 import {
-  resolveAgentRef as resolveAgentRefIn, resumableHandles, resumedResultText, resumeHint, resumeNotFoundMessage,
-  resumeTombstone, type TombstoneResumeDeps, type TombstoneSpawnOptions,
+  type DetachedStart, resolveAgentRef as resolveAgentRefIn, resolveResumeTarget, resumedResultText, resumeHint,
+  resumeTombstone, startDetached, type TombstoneResumeDeps, type TombstoneSpawnOptions,
 } from "./resume-target.js";
 import { createOutputFilePath, ensureOutputFile, getOutputTranscriptDefault, setOutputTranscriptDefault, streamToOutputFile, writeInitialEntry } from "./output-file.js";
 import { applyAndEmitLoaded, loadSettings, type SubagentsSettings, saveAndEmitChanged, type ToolDescriptionMode } from "./settings.js";
@@ -707,15 +707,14 @@ export default function (pi: ExtensionAPI) {
    * extension wrote. The agent may still be starting, so wait: a startup
    * failure then rejects instead of being announced as a resume.
    */
-  const startDetachedTombstoneResume = async (
-    piRef: any, ctxRef: any, type: string, prompt: string, options: TombstoneSpawnOptions,
-    onSpawned?: (id: string) => void,
-  ): Promise<string> => {
-    const id = spawnResolved(piRef, ctxRef, type, prompt, { ...options, isBackground: true });
-    onSpawned?.(id);
-    await manager.awaitStartup(id);
-    return id;
-  };
+  const startDetachedTombstoneResume = (
+    piRef: any, ctxRef: any, type: string, prompt: string, options: TombstoneSpawnOptions & { rootSessionId?: string },
+    hooks: Pick<DetachedStart, "wire" | "onStarted"> = {},
+  ): Promise<string> => startDetached({
+    spawn: () => spawnResolved(piRef, ctxRef, type, prompt, { ...options, isBackground: true }),
+    awaitStartup: id => manager.awaitStartup(id),
+    ...hooks,
+  });
 
   const registryEntry = {
     waitForAll: () => manager.waitForAll(),
@@ -1756,18 +1755,12 @@ Terse command-style prompts produce shallow, generic work.
 
       // Resume existing agent
       if (params.resume) {
-        const existing = resolveAgentRef(params.resume);
-        if (!existing) {
-          // Evicted after it finished: reopen its conversation from disk, the
-          // way an `@handle` mention does.
-          const resolved = manager.resolveMention(params.resume);
-          if (resolved?.kind === "tombstone") {
-            return resumeEvicted(resolved.entry);
-          }
-        }
-        if (!existing || !isTopLevelAgent(existing)) {
-          return textResult(resumeNotFoundMessage(params.resume, resumableHandles(manager)));
-        }
+        const target = resolveResumeTarget(manager, params.resume);
+        // Evicted after it finished: reopen its conversation from disk, the
+        // way an `@handle` mention does.
+        if (target.kind === "tombstone") return resumeEvicted(target.entry);
+        if (target.kind === "missing") return textResult(target.message);
+        const existing = target.record;
         if (!existing.session) {
           return textResult(`Agent "${params.resume}" has no active session to resume.`);
         }
@@ -1826,21 +1819,27 @@ Terse command-style prompts produce shallow, generic work.
        * returns its result, like a foreground resume.
        */
       async function resumeEvicted(entry: AgentTombstone) {
+        const rootSessionId = ctx.sessionManager.getSessionId();
         if (runInBackground) {
+          const joinMode = resolveJoinMode(defaultJoinMode, true);
           const outcome = await resumeTombstone(entry, tombstoneResumeDeps((type, options) =>
-            startDetachedTombstoneResume(pi, ctx, type, params.prompt, options, (id) => {
+            startDetachedTombstoneResume(pi, ctx, type, params.prompt, { ...options, rootSessionId }, {
               // Wired before the run can finish, as a background spawn does,
               // so the completion notification points at this tool call.
-              const rec = manager.getRecord(id);
-              const joinMode = resolveJoinMode(defaultJoinMode, true);
-              if (!rec) return;
-              rec.toolCallId = toolCallId;
-              if (joinMode) rec.joinMode = joinMode;
-              if (joinMode != null && joinMode !== "async") {
+              wire: (id) => {
+                const rec = manager.getRecord(id);
+                if (!rec) return;
+                rec.toolCallId = toolCallId;
+                if (joinMode) rec.joinMode = joinMode;
+              },
+              // Only once it has started, as a background spawn does: an
+              // agent that failed to start must not hold up a batch.
+              onStarted: (id) => {
+                if (joinMode == null || joinMode === "async") return;
                 currentBatchAgents.push({ id, joinMode });
                 if (batchFinalizeTimer) clearTimeout(batchFinalizeTimer);
                 batchFinalizeTimer = setTimeout(finalizeBatch, 100);
-              }
+              },
             })));
           if (!outcome.ok) return textResult(outcome.message);
           const record = manager.getRecord(outcome.id);
@@ -1857,16 +1856,68 @@ Terse command-style prompts produce shallow, generic work.
         }
 
         // Foreground: spawnAndWait charges the foreground pool and returns
-        // once the run has settled. The tracker is spawnResolved's, wired by hand.
+        // once the run has settled. The tracker, the spinner and the output
+        // file are the normal foreground spawn's, wired by hand.
         let fgResumeId: string | undefined;
+        let resumeSpinnerFrame = 0;
+        let resumeQueuedAhead: number | undefined;
+        const resumeStartedAt = Date.now();
         const outcome = await resumeTombstone(entry, tombstoneResumeDeps(async (type, options) => {
-          const { state, callbacks } = createActivityTracker(resolveEffectiveMaxTurns(type, undefined));
+          const resumeUpdate = () => {
+            const rec = fgResumeId ? manager.getRecord(fgResumeId) : undefined;
+            onUpdate?.({
+              content: [{ type: "text", text: `${state.toolUses} tool uses...` }],
+              details: {
+                ...detailBaseFor(rec),
+                toolUses: state.toolUses,
+                tokens: rec ? formatLifetimeTokens(rec) : "",
+                cost: rec ? getLifetimeCost(rec.lifetimeUsage) : 0,
+                turnCount: state.turnCount,
+                maxTurns: state.maxTurns,
+                durationMs: Date.now() - resumeStartedAt,
+                status: "running",
+                activity: resumeQueuedAhead === undefined
+                  ? describeActivity(state.activeTools, state.responseText)
+                  : `queued — waiting for a foreground slot${resumeQueuedAhead > 0 ? ` (${resumeQueuedAhead} ahead)` : ""}`,
+                spinnerFrame: resumeSpinnerFrame % SPINNER.length,
+              } as any,
+            });
+          };
+          const { state, callbacks } = createActivityTracker(resolveEffectiveMaxTurns(type, undefined), resumeUpdate);
+          const origOnSession = callbacks.onSessionCreated;
+          callbacks.onSessionCreated = (session: any) => {
+            origOnSession(session);
+            resumeQueuedAhead = undefined;
+            widget.ensureTimer();
+            fleet.ensureTimer();
+            fleet.update();
+            const rec = fgResumeId ? manager.getRecord(fgResumeId) : undefined;
+            if (rec?.outputFile) {
+              rec.outputCleanup = streamToOutputFile(session, rec.outputFile, rec.id, ctx.cwd);
+            }
+          };
+          // The resumed agent's own setting decides its transcript, not the
+          // `subagent_type` this call happened to pass.
+          const transcript = getAgentConfig(type)?.outputTranscript ?? getOutputTranscriptDefault();
+          const spinner = setInterval(() => { resumeSpinnerFrame++; resumeUpdate(); }, 80);
+          resumeUpdate();
           try {
             const { id } = await manager.spawnAndWait(pi, ctx, type, params.prompt, {
-              ...options, signal, ...callbacks,
-            }, (id) => { fgResumeId = id; agentActivity.set(id, state); });
+              ...options, signal, rootSessionId,
+              onQueued: (_id: string, ahead: number) => { resumeQueuedAhead = ahead; resumeUpdate(); },
+              ...callbacks,
+            }, (id) => {
+              fgResumeId = id;
+              agentActivity.set(id, state);
+              const rec = manager.getRecord(id);
+              if (rec && transcript) {
+                rec.outputFile = createOutputFilePath(ctx.cwd, id, rootSessionId);
+                writeInitialEntry(rec.outputFile, id, params.prompt, ctx.cwd);
+              }
+            });
             return id;
           } finally {
+            clearInterval(spinner);
             if (fgResumeId) {
               agentActivity.delete(fgResumeId);
               widget.markFinished(fgResumeId);

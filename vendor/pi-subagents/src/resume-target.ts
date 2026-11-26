@@ -4,6 +4,7 @@
  * than by the id, which a foreground result never shows.
  */
 
+import { isTopLevelAgent } from "./agent-manager.js";
 import type { SpawnTypeResolution } from "./agent-types.js";
 import { partialOutputSuffix } from "./status-note.js";
 import type { AgentRecord, AgentTombstone, MentionResolution } from "./types.js";
@@ -30,19 +31,50 @@ export function resolveAgentRef(manager: AgentLookup, ref: string): AgentRecord 
   return resolved?.kind === "live" ? resolved.record : undefined;
 }
 
+/** Where the Agent tool's `resume` leads: a live record, a tombstone to reopen, or nothing. */
+export type ResumeTarget =
+  | { kind: "live"; record: AgentRecord }
+  | { kind: "tombstone"; entry: AgentTombstone }
+  | { kind: "missing"; message: string };
+
 /**
- * Handles of the top-level agents a resume could reach now: settled, with a
- * session still open. The name the model gave wins over the type handle.
+ * Resolve the Agent tool's `resume`. A live top-level record wins. A nested
+ * one is refused like an unknown one, since only its owner may resume it.
+ * Otherwise an evicted agent's tombstone, through the same `resolveMention`
+ * as the `@handle` mention: it already prefers the live record that
+ * reclaimed the tombstone's names, so neither path forks a session.
+ */
+export function resolveResumeTarget(manager: AgentLookup, ref: string): ResumeTarget {
+  const record = resolveAgentRef(manager, ref);
+  if (record && isTopLevelAgent(record)) return { kind: "live", record };
+  if (!record) {
+    const resolved = manager.resolveMention(ref);
+    if (resolved?.kind === "tombstone") return { kind: "tombstone", entry: resolved.entry };
+  }
+  return { kind: "missing", message: resumeNotFoundMessage(ref, resumableHandles(manager)) };
+}
+
+/**
+ * The top-level agents a resume could name, each once with its state:
+ * `explore (completed)`, `worker (running)`, or `(saved)` for an evicted
+ * agent whose conversation reopens from disk. The name the model gave wins
+ * over the type handle. Each name is described by what `resolveMention`
+ * finds for it, so a tombstone whose names a live record holds reads as
+ * that record.
  */
 export function resumableHandles(manager: AgentLookup): string[] {
-  const live = manager.listAgents()
-    .filter(r => r.parentAgentId === undefined && r.session !== undefined)
-    .filter(r => r.status !== "running" && r.status !== "queued")
-    .map(r => r.alias ?? r.handle)
-    .filter((h): h is string => h !== undefined);
-  // Evicted agents too: their conversation reopens from the session file.
-  const evicted = manager.listTombstones().map(t => t.alias ?? t.handle);
-  return [...new Set([...live, ...evicted])].sort();
+  const names = [
+    ...manager.listAgents()
+      .filter(r => r.parentAgentId === undefined && r.session !== undefined)
+      .map(r => r.alias ?? r.handle),
+    ...manager.listTombstones().map(t => t.alias ?? t.handle),
+  ].filter((h): h is string => h !== undefined);
+  const labels = [...new Set(names)].map(name => {
+    const resolved = manager.resolveMention(name);
+    if (!resolved) return undefined;
+    return `${name} (${resolved.kind === "live" ? resolved.record.status : "saved"})`;
+  });
+  return labels.filter((l): l is string => l !== undefined).sort();
 }
 
 /** The few words a foreground result adds so the model can resume the agent later. */
@@ -125,7 +157,8 @@ export async function resumeTombstone(entry: AgentTombstone, deps: TombstoneResu
       resumeSessionFile: entry.sessionFile,
     });
     // The tombstone deliberately stays. `resolveMention` prefers the live
-    // record holding these same names, so it cannot shadow the resume — and
+    // record holding these same names, also for a lookup by the old id, so
+    // it cannot shadow the resume — and
     // if this run dies before establishing its own session, the original
     // transcript is still the right thing for the next resume to reopen.
     // Once the resumed record is evicted it overwrites this entry in place,
@@ -138,11 +171,33 @@ export async function resumeTombstone(entry: AgentTombstone, deps: TombstoneResu
   }
 }
 
-/** The error for a resume that matched nothing, in two sentences. */
+/** The error for a resume that matched nothing. */
 export function resumeNotFoundMessage(ref: string, handles: string[]): string {
   const offer = handles.length > 0
-    ? `the agents you can resume are ${handles.join(", ")}.`
-    : "no agent can be resumed now.";
-  return `Agent not found: "${ref}" — ${offer} ` +
-    "A finished agent no longer listed has been cleaned up, so start a new Agent and give it the branch and the notes.";
+    ? `Known agents: ${handles.join(", ")}.`
+    : "No agent can be resumed now.";
+  return `Agent not found: "${ref}". ${offer} ` +
+    "An agent that is not listed has been cleaned up. Start a new Agent with the context it needs.";
+}
+
+/** The steps of a detached start, so each caller wires its own record. */
+export interface DetachedStart {
+  spawn(): string;
+  /** Synchronous wiring before the run can finish: tool call id, join mode. */
+  wire?(id: string): void;
+  awaitStartup(id: string): Promise<void>;
+  /** Runs only once the agent has started, as a background spawn joins its batch. */
+  onStarted?(id: string): void;
+}
+
+/**
+ * Spawn, wire, wait for startup, then report the start. A startup failure
+ * rejects before `onStarted`, so a failed agent never joins a batch.
+ */
+export async function startDetached(steps: DetachedStart): Promise<string> {
+  const id = steps.spawn();
+  steps.wire?.(id);
+  await steps.awaitStartup(id);
+  steps.onStarted?.(id);
+  return id;
 }

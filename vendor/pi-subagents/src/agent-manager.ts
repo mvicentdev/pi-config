@@ -1299,6 +1299,31 @@ export class AgentManager {
    * falls back to an exact agent id so `@<agentId>` works too.
    */
   resolveMention(name: string): MentionResolution | undefined {
+    const byName = this.liveByName(name);
+    if (byName) return { kind: "live", record: byName };
+    const byId = this.agents.get(name);
+    if (byId?.parentAgentId === undefined && byId !== undefined) return { kind: "live", record: byId };
+    // Only once nothing live answers: a tombstone is a conversation to reopen,
+    // and reopening one while its record still exists would fork the session.
+    const wanted = name.toLowerCase();
+    for (const entry of this.tombstones.values()) {
+      if (entry.handle.toLowerCase() === wanted || entry.alias?.toLowerCase() === wanted || entry.id === name) {
+        // A resume keeps the tombstone, keyed by the old id, and its record
+        // reclaims the tombstone's handle. A lookup by that old id must reach
+        // the record: reopening the tombstone again would fork the session.
+        const holder = this.liveByName(entry.handle);
+        if (holder) return { kind: "live", record: holder };
+        return { kind: "tombstone", entry };
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * The top-level record answering a handle or alias, case-insensitively:
+   * one that can still be steered, otherwise the most recently started.
+   */
+  private liveByName(name: string): AgentRecord | undefined {
     const wanted = name.toLowerCase();
     let fallback: AgentRecord | undefined;
     for (const record of this.agents.values()) {
@@ -1306,20 +1331,10 @@ export class AgentManager {
       // Handle and alias share one namespace, so at most one agent answers a
       // name and it makes no difference which of the two matched.
       if (record.handle?.toLowerCase() !== wanted && record.alias?.toLowerCase() !== wanted) continue;
-      if (record.status === "running" || record.status === "queued") return { kind: "live", record };
+      if (record.status === "running" || record.status === "queued") return record;
       if (!fallback || record.startedAt > fallback.startedAt) fallback = record;
     }
-    if (fallback) return { kind: "live", record: fallback };
-    const byId = this.agents.get(name);
-    if (byId?.parentAgentId === undefined && byId !== undefined) return { kind: "live", record: byId };
-    // Only once nothing live answers: a tombstone is a conversation to reopen,
-    // and reopening one while its record still exists would fork the session.
-    for (const entry of this.tombstones.values()) {
-      if (entry.handle.toLowerCase() === wanted || entry.alias?.toLowerCase() === wanted || entry.id === name) {
-        return { kind: "tombstone", entry };
-      }
-    }
-    return undefined;
+    return fallback;
   }
 
   /**

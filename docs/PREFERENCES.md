@@ -14,6 +14,8 @@ A setting applies every time. A written rule applies only when an agent reads it
 - The entry file is always in context. It points to each document, and no document points back to it.
 - Each document is one step away from the entry file. Only a document that adopts another needs it.
 - Each section opens with the human reason for its rules.
+- Each concept keeps one name, and each cited file, section and name exists. After an edit, grep the
+  documents for what it renamed or removed.
 - A line enters a document only after an agent failed without it.
 
 ## Markdown

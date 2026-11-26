@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { EDIT_REASON, editReason } from "./guard.ts";
+import { pathToFileURL } from "node:url";
+import { EDIT_REASON, editReason, toolCallReason } from "./guard.ts";
 
 // Un repositorio de verdad (con .git) y un directorio de notas fuera de él, en un temporal.
 const root = realpathSync(mkdtempSync(join(tmpdir(), "main-loop-guard-")));
@@ -18,6 +19,13 @@ writeFileSync(join(notes, "plan.ts"), "export {};\n");
 symlinkSync(join(repo, "src"), join(notes, "src-link"));
 symlinkSync(join(repo, "src", "App.ts"), join(notes, "app-link.ts"));
 symlinkSync(notes, join(repo, "notes-link"));
+// Un worktree enlazado o un submódulo: .git es un fichero que apunta al repositorio.
+const linked = join(root, "linked");
+mkdirSync(join(linked, "src"), { recursive: true });
+writeFileSync(join(linked, ".git"), `gitdir: ${join(repo, ".git", "worktrees", "linked")}\n`);
+// Un repositorio con un espacio en el nombre.
+const spaced = join(root, "spaced repo");
+mkdirSync(join(spaced, ".git"), { recursive: true });
 after(() => rmSync(root, { recursive: true, force: true }));
 
 test("rechaza editar o escribir código dentro de un repositorio", () => {
@@ -45,6 +53,47 @@ test("resuelve una ruta relativa contra el directorio de la sesión", () => {
 	assert.equal(editReason("write", "README.md", repo), null);
 	assert.equal(editReason("edit", "@src/App.ts", repo), EDIT_REASON);
 	assert.equal(editReason("edit", "~/src/App.ts", notes, repo), EDIT_REASON);
+	assert.equal(editReason("write", "~", notes, join(repo, "src")), EDIT_REASON);
+	assert.equal(editReason("write", "~", repo, notes), null);
+});
+
+test("traduce una URL file:// como pi", () => {
+	assert.equal(editReason("write", pathToFileURL(join(repo, "src", "App.ts")).href, notes), EDIT_REASON);
+	assert.equal(editReason("write", `file://${join(repo, "src", "New.ts")}`, notes), EDIT_REASON);
+	assert.equal(editReason("write", pathToFileURL(join(repo, "README.md")).href, notes), null);
+	assert.equal(editReason("write", pathToFileURL(join(notes, "plan.ts")).href, repo), null);
+});
+
+test("cambia los espacios Unicode por espacios normales como pi", () => {
+	assert.equal(editReason("write", "spaced\u00A0repo/src/App.ts", root), EDIT_REASON);
+	assert.equal(editReason("write", "spaced\u202Frepo/src/App.ts", root), EDIT_REASON);
+});
+
+test("reconoce un worktree enlazado o un submódulo, donde .git es un fichero", () => {
+	assert.equal(editReason("write", join(linked, "src", "App.ts"), root), EDIT_REASON);
+	assert.equal(editReason("edit", "src/App.ts", linked), EDIT_REASON);
+	assert.equal(editReason("write", join(linked, "README.md"), root), null);
+});
+
+test("rechaza lsp_fix cuando escribe el arreglo en el fichero", () => {
+	assert.equal(toolCallReason("lsp_fix", { path: "src/App.ts", write: true }, repo), EDIT_REASON);
+	assert.equal(toolCallReason("lsp_fix", { path: "src/App.ts", root: "repo", write: true }, root), EDIT_REASON);
+	assert.equal(toolCallReason("lsp_fix", { path: join(repo, "src", "App.ts"), write: true }, notes), EDIT_REASON);
+	assert.equal(toolCallReason("lsp_fix", { path: "README.md", write: true }, repo), null);
+	assert.equal(toolCallReason("lsp_fix", { path: "plan.ts", write: true }, notes), null);
+});
+
+test("deja lsp_fix cuando solo muestra el arreglo", () => {
+	assert.equal(toolCallReason("lsp_fix", { path: "src/App.ts" }, repo), null);
+	assert.equal(toolCallReason("lsp_fix", { path: "src/App.ts", write: false }, repo), null);
+	assert.equal(toolCallReason("lsp_fix", { path: "src/App.ts", write: "true" }, repo), null);
+});
+
+test("toolCallReason juzga edit y write por su path", () => {
+	assert.equal(toolCallReason("edit", { path: "src/App.ts" }, repo), EDIT_REASON);
+	assert.equal(toolCallReason("write", { path: "README.md" }, repo), null);
+	assert.equal(toolCallReason("read", { path: "src/App.ts" }, repo), null);
+	assert.equal(toolCallReason("edit", undefined, repo), null);
 });
 
 test("juzga por la ubicación real una ruta que pasa por un enlace simbólico", () => {

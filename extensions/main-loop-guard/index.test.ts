@@ -34,6 +34,14 @@ test("el bucle principal edita markdown y ficheros fuera de un repositorio", () 
 	assert.equal(handler({ toolName: "write", input: { path: "notes.ts" } }, { cwd: root }), undefined);
 });
 
+test("el bucle principal no deja que lsp_fix escriba código de un repositorio, pero sí que lo muestre", () => {
+	const handler = toolCall();
+	const ctx = { cwd: join(root, "repo") };
+	assert.deepEqual(handler({ toolName: "lsp_fix", input: { path: "src/App.ts", write: true } }, ctx), { block: true, reason: EDIT_REASON });
+	assert.equal(handler({ toolName: "lsp_fix", input: { path: "src/App.ts", write: false } }, ctx), undefined);
+	assert.equal(handler({ toolName: "lsp_fix", input: { path: "src/App.ts" } }, ctx), undefined);
+});
+
 // pi-subagents carga en un subagente las extensiones del bucle principal salvo las de exclude_extensions.
 test("ningún subagente carga la extensión", () => {
 	const names = extensionCanonicalNames(join(DIRECTORY, "index.ts"));

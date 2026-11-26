@@ -24,10 +24,12 @@ that say how to review. Read them first.
 
 ## Report
 
-Answer in at most 600 words.
+Answer in at most 600 words. Open with exactly one line, `Verdict: pass` or `Verdict: fail`, in
+English whatever the report's language. A pass with reservations, conditions or open blockers is
+`fail`.
 
 - Each finding, with its absolute path, line, the evidence and why it breaks the specification.
-- The verdict your prompt asks for.
+- Any other verdict your prompt asks for.
 - Each command you ran, with its result.
 - What you checked without findings.
 - What remains unverified.

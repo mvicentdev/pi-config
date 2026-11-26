@@ -16,6 +16,7 @@ const REFUSED = { block: true, reason: PUBLISH_REASON };
 function session(entries: unknown[] = []) {
 	const handlers = new Map<string, (event: unknown, ctx: unknown) => unknown>();
 	const listeners = new Map<string, (data: unknown) => void>();
+	const emit = (name: string, data: unknown) => listeners.get(name)?.(data);
 	let clock = 1000;
 	createReviewGuard(() => ++clock)({
 		on: (name: string, handler: never) => handlers.set(name, handler),
@@ -34,6 +35,16 @@ function session(entries: unknown[] = []) {
 	return {
 		handlers,
 		ctx,
+		emit,
+		// Una llamada que empieza y aún no acaba.
+		start: (toolName: string, input: Record<string, unknown>) => {
+			const toolCallId = `call-${++id}`;
+			handlers.get("tool_call")?.({ toolName, toolCallId, input }, ctx);
+			return (result: Record<string, unknown> = {}) => {
+				handlers.get("tool_result")?.({ toolName, toolCallId, input, content: [], isError: false, ...result }, ctx);
+				handlers.get("tool_execution_end")?.({ toolName, toolCallId }, ctx);
+			};
+		},
 		push: (command = "git push") => handlers.get("tool_call")?.({ toolName: "bash", toolCallId: `push-${++id}`, input: { command } }, ctx),
 		edit: (path = "README.md") => run("edit", { path, oldText: "a", newText: "b" }),
 		run,
@@ -69,7 +80,7 @@ test("sin cambios en la sesión se publica", () => {
 test("un verifier que pasa después del cambio deja publicar", () => {
 	const s = session();
 	s.edit();
-	s.agent("verifier", "**Veredicto: pass.**\n\nSin hallazgos.");
+	s.agent("verifier", "Verdict: pass\n\nSin hallazgos.");
 	assert.equal(s.push(), undefined);
 	assert.equal(s.push("git -C /tmp/repo push"), undefined);
 });
@@ -97,7 +108,9 @@ test("un worker reanudado cuenta como cambio aunque subagent_type diga otra cosa
 test("un verifier que falla, que no informa o que acaba en error no deja publicar", () => {
 	const s = session();
 	s.edit();
-	s.agent("verifier", "**Veredicto: fail.**\n\n1. /tmp/a.md:3 pierde una regla.");
+	s.agent("verifier", "Verdict: fail\n\n1. /tmp/a.md:3 pierde una regla.");
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass with reservations");
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", undefined);
 	assert.deepEqual(s.push(), REFUSED);
@@ -135,10 +148,81 @@ test("una edición aún en curso en paralelo impide publicar", () => {
 	assert.deepEqual(s.push(), REFUSED);
 });
 
+test("un worker en segundo plano aún en marcha impide publicar hasta que acaba", () => {
+	const s = session();
+	s.emit("subagents:created", { id: "w1", type: "worker", description: "fix", isBackground: true });
+	assert.deepEqual(s.push(), REFUSED);
+	s.emit("subagents:started", { id: "w1", type: "worker", description: "fix" });
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
+	assert.deepEqual(s.push(), REFUSED);
+	s.emit("subagents:completed", { id: "w1", type: "worker", status: "completed", result: "done", durationMs: 0 });
+	// Acabó y cambió el trabajo: un verifier nuevo lo cubre.
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
+	assert.equal(s.push(), undefined);
+	// Un worker que pi-subagents arranca desde la cola o por RPC solo avisa con subagents:started.
+	s.emit("subagents:started", { id: "w2", type: "worker", description: "queued" });
+	assert.deepEqual(s.push(), REFUSED);
+	s.emit("subagents:failed", { id: "w2", type: "worker", status: "stopped", durationMs: 0 });
+	s.agent("verifier", "Verdict: pass");
+	assert.equal(s.push(), undefined);
+	// Un verifier en segundo plano no impide publicar.
+	s.emit("subagents:created", { id: "v9", type: "verifier", description: "review", isBackground: true });
+	assert.equal(s.push(), undefined);
+});
+
+test("un worker reanudado en primer plano impide publicar mientras corre", () => {
+	const s = session();
+	s.emit("subagents:created", { id: "w1", type: "worker", description: "fix", isBackground: true });
+	s.emit("subagents:completed", { id: "w1", type: "worker", status: "completed", result: "done", durationMs: 0 });
+	s.emit("subagents:created", { id: "v1", type: "verifier", description: "review", isBackground: true });
+	s.emit("subagents:completed", { id: "v1", type: "verifier", status: "completed", result: "Verdict: pass", durationMs: 0 });
+	assert.equal(s.push(), undefined);
+	// Reanudar ignora subagent_type: cuenta el tipo del agente reanudado.
+	const end = s.start("Agent", { subagent_type: "verifier", resume: "w1", prompt: "fix", run_in_background: false });
+	assert.deepEqual(s.push(), REFUSED);
+	end({ content: [{ type: "text", text: "Done." }], details: { subagentType: "worker", status: "completed", durationMs: 0, agentId: "w1" } });
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
+	assert.equal(s.push(), undefined);
+	const review = s.start("Agent", { subagent_type: "worker", resume: "v1", prompt: "again", run_in_background: false });
+	assert.equal(s.push(), undefined);
+	review();
+	// Un agente que la extensión no conoce puede ser un worker.
+	const unknown = s.start("Agent", { subagent_type: "verifier", resume: "x1", prompt: "go", run_in_background: false });
+	assert.deepEqual(s.push(), REFUSED);
+	unknown();
+	assert.equal(s.push(), undefined);
+	// Un worker nuevo en primer plano también impide publicar mientras corre.
+	const fresh = s.start("Agent", { subagent_type: "worker", prompt: "fix", run_in_background: false });
+	assert.deepEqual(s.push(), REFUSED);
+	fresh();
+});
+
+test("tras recargar, reconoce el tipo de un agente que se reanuda", () => {
+	const s = session([subagent("worker", "done", 1, 2), subagent("verifier", "Verdict: pass", 3, 4)]);
+	assert.equal(s.push(), undefined);
+	const end = s.start("Agent", { subagent_type: "verifier", resume: "worker", prompt: "fix", run_in_background: false });
+	assert.deepEqual(s.push(), REFUSED);
+	end();
+	const review = s.start("Agent", { subagent_type: "worker", resume: "verifier", prompt: "again", run_in_background: false });
+	assert.equal(s.push(), undefined);
+	review();
+});
+
 test("las formas de publicar con -C y en cadena también se rechazan", () => {
 	const s = session();
 	s.edit();
-	for (const command of ["git -C /tmp/repo push origin main", "npm test && git push", "git commit -m x; git push -u origin HEAD"]) {
+	for (const command of [
+		"git -C /tmp/repo push origin main",
+		"npm test && git push",
+		"git commit -m x; git push -u origin HEAD",
+		"timeout 30 git push",
+		"sudo -u deploy git push",
+		"gh -R o/r pr create",
+		"glab -R o/r mr create",
+	]) {
 		assert.deepEqual(s.push(command), REFUSED, command);
 	}
 });

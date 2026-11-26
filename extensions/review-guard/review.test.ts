@@ -25,6 +25,13 @@ test("reconoce git push en cualquier forma", () => {
 		"echo $(git push)",
 		"bash -c 'git push'",
 		'sh -c "cd /tmp && git -C repo push"',
+		"timeout 30 git push",
+		"timeout -s KILL --kill-after=5 5m git push origin main",
+		"nice git push",
+		"nice -n 10 git push",
+		"sudo git push",
+		"sudo -u deploy git push",
+		"sudo -u deploy timeout 30 nice -n 5 git push",
 	]) {
 		assert.equal(publishes(command), true, command);
 	}
@@ -36,6 +43,11 @@ test("reconoce abrir una merge request o una pull request", () => {
 	assert.equal(publishes("git push -u origin feat && glab mr create --fill"), true);
 	assert.equal(publishes("gh pr create --fill"), true);
 	assert.equal(publishes("gh pr new --title x"), true);
+	assert.equal(publishes("gh -R o/r pr create --fill"), true);
+	assert.equal(publishes("gh --repo o/r pr create"), true);
+	assert.equal(publishes("glab -R o/r mr create --fill"), true);
+	assert.equal(publishes("glab --repo o/r mr create"), true);
+	assert.equal(publishes("timeout 60 glab -R o/r mr create"), true);
 });
 
 test("no confunde otras órdenes con publicar", () => {
@@ -52,20 +64,23 @@ test("no confunde otras órdenes con publicar", () => {
 		"gh pr view 3",
 		"gh pr list",
 		"git -C /tmp/repo status",
+		"timeout 30 git status",
+		"nice -n 10 npm test",
+		"sudo -u deploy git fetch",
+		"gh -R o/r pr list",
+		"glab -R o/r mr view 12",
 		"",
 	]) {
 		assert.equal(publishes(command), false, command);
 	}
 });
 
-test("lee un veredicto que pasa", () => {
-	assert.equal(verdictPasses("**Veredicto: pass.**\n\nSin hallazgos."), true);
+test("lee el veredicto que pasa solo en la primera línea", () => {
 	assert.equal(verdictPasses("Verdict: pass"), true);
-	assert.equal(verdictPasses("Verdict: PASS, with no findings."), true);
+	assert.equal(verdictPasses("\n\nVerdict: pass\n\nSin hallazgos."), true);
+	assert.equal(verdictPasses("**Verdict: pass**\n\n- Ran npm test: exit 0."), true);
 	assert.equal(verdictPasses("**Verdict:** pass"), true);
-	assert.equal(verdictPasses("Agent completed in 2m (30 tool uses).\n\n**Veredicto: pass.**"), true);
-	assert.equal(verdictPasses("## Verdict\n\npass\n\n## Commands"), true);
-	assert.equal(verdictPasses("Veredicto: pasa."), true);
+	assert.equal(verdictPasses("  Verdict: pass  \nVerdict: fail"), true);
 });
 
 test("no toma por aprobado un fallo, un informe vacío ni uno sin veredicto claro", () => {
@@ -81,6 +96,15 @@ test("no toma por aprobado un fallo, un informe vacío ni uno sin veredicto clar
 	assert.equal(verdictPasses(undefined), false);
 	assert.equal(verdictPasses("All checks pass."), false);
 	assert.equal(verdictPasses("Verdict: the change looks fine"), false);
+	assert.equal(verdictPasses("Verdict: pass with reservations"), false);
+	assert.equal(verdictPasses("Verdict: pass, with conditions"), false);
+	assert.equal(verdictPasses("Verdict: pass (one open blocker)"), false);
+	assert.equal(verdictPasses("**Veredicto: pass.**"), false);
+	assert.equal(verdictPasses("Veredicto: pasa."), false);
+	assert.equal(verdictPasses("Verdict: PASS"), false);
+	assert.equal(verdictPasses("## Verdict\n\npass"), false);
+	assert.equal(verdictPasses("Findings: none.\n\nVerdict: pass"), false);
+	assert.equal(verdictPasses("Agent completed in 2m (30 tool uses).\n\nVerdict: pass"), false);
 });
 
 test("solo una revisión que empezó después del último cambio lo cubre", () => {
@@ -114,7 +138,7 @@ test("rehace el estado desde las entradas de la sesión", () => {
 	assert.equal(rebuild([]).unreviewed(), false);
 	const edited = [call("c1", "edit", { path: "a.md" }, 1), result("c1", "edit", 2)];
 	assert.equal(rebuild(edited).unreviewed(), true);
-	const reviewed = [...edited, record("verifier", "completed", "**Veredicto: pass.**", 3, 4)];
+	const reviewed = [...edited, record("verifier", "completed", "Verdict: pass", 3, 4)];
 	assert.equal(rebuild(reviewed).unreviewed(), false);
 	assert.equal(rebuild([...reviewed, record("worker", "completed", "done", 5, 6)]).unreviewed(), true);
 	assert.equal(rebuild([...edited, record("verifier", "completed", "Verdict: fail", 3, 4)]).unreviewed(), true);
@@ -141,7 +165,14 @@ test("el estado rehecho lee el resultado de un Agent en primer plano, también r
 			},
 		},
 	];
-	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms.\n\nVerdict: pass", 3)]).unreviewed(), false);
+	// El Agent en primer plano antepone su cabecera y a veces una nota. El veredicto es la primera línea del informe.
+	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms (3 tool uses).\n\nVerdict: pass", 3)]).unreviewed(), false);
+	assert.equal(
+		rebuild([...edited, ...verifier("c2", 'Note: Unknown agent type "x".\n\nAgent completed in 5ms.\n\n**Verdict: pass**\n\nAgent completed in 1s.', 3)]).unreviewed(),
+		false,
+	);
+	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms.\n\nVerdict: pass with reservations", 3)]).unreviewed(), true);
+	assert.equal(rebuild([...edited, ...verifier("c2", "Agent completed in 5ms.\n\nFindings.\n\nVerdict: pass", 3)]).unreviewed(), true);
 	// Una reanudación ignora subagent_type: details lleva el tipo real.
 	const resumedWorker = [
 		call("c3", "Agent", { subagent_type: "verifier", resume: "w1", prompt: "fix" }, 20),

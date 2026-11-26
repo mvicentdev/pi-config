@@ -24,17 +24,12 @@ export class ReviewState {
 	}
 }
 
-// El informe de verifier abre con «**Veredicto: pass.**» o «Verdict: pass». Cuenta solo la primera mención del veredicto.
-// Su primera palabra decide: pass o pasa aprueban, y fail, falla, «no pasa» o cualquier otra cosa no.
-// Una línea que nombra también un fallo, como «pass or fail», no aprueba.
+// agents/verifier.md fija que el informe abre con la línea «Verdict: pass» o «Verdict: fail».
+// Solo aprueba esa primera línea no vacía con pass, también en negrita. Cualquier otra cosa, como «pass with reservations», no.
 export function verdictPasses(report: unknown): boolean {
 	if (typeof report !== "string") return false;
-	const match = /\b(?:verdict|veredicto)\b([^\n]*)((?:\n[^\n]*)*)/i.exec(report);
-	if (!match) return false;
-	const clean = (line: string) => line.replace(/^[^\p{L}]+/u, "").toLowerCase();
-	let words = clean(match[1]);
-	if (!words) words = clean(match[2].split("\n").find((line) => clean(line)) ?? "");
-	return /^(pass|passes|passed|pasa)\b/.test(words) && !/\b(fail\w*|falla\w*|no pasa|not pass\w*)\b/.test(words);
+	const first = report.split("\n").find((line) => line.trim()) ?? "";
+	return /^\s*(\*\*)?Verdict:(\*\*)? pass(\*\*)?\s*$/.test(first) && (first.match(/\*\*/g)?.length ?? 0) % 2 === 0;
 }
 
 export type AgentOutcome = { type: string; status: string; report: unknown; startedAt: number; completedAt: number };
@@ -60,12 +55,14 @@ const textOf = (content: unknown) =>
 		: "";
 
 // El Agent en primer plano devuelve el informe y details con el tipo real, también al reanudar, donde subagent_type no cuenta.
+// Antes del informe puede ir una nota y la cabecera «Agent completed in …», seguida de una línea en blanco.
 // En segundo plano devuelve status "background": el final llega después como subagents:completed.
 export function agentFromToolResult(details: unknown, content: unknown, at: number): AgentOutcome | null {
 	const fields = (details ?? {}) as Record<string, unknown>;
 	if (typeof fields.subagentType !== "string" || typeof fields.status !== "string") return null;
 	const duration = typeof fields.durationMs === "number" ? fields.durationMs : 0;
-	return { type: fields.subagentType, status: fields.status, report: textOf(content), startedAt: at - duration, completedAt: at };
+	const report = textOf(content).replace(/^[\s\S]*?^Agent completed in [^\n]*\n\n/m, "");
+	return { type: fields.subagentType, status: fields.status, report, startedAt: at - duration, completedAt: at };
 }
 
 // pi-subagents guarda cada agente acabado como entrada subagents:record.
@@ -77,6 +74,21 @@ export function agentFromRecord(data: unknown): AgentOutcome | null {
 }
 
 type Entry = { type?: string; customType?: string; data?: unknown; message?: Record<string, unknown> };
+
+// El tipo de cada agente por su id, para saber qué reanuda un Agent con resume.
+export function agentTypes(entries: readonly unknown[]): Map<string, string> {
+	const types = new Map<string, string>();
+	for (const raw of entries) {
+		const entry = (raw ?? {}) as Entry;
+		const fields = (entry.type === "custom" && entry.customType === "subagents:record" ? entry.data : entry.message?.details) as
+			| Record<string, unknown>
+			| undefined;
+		const id = fields?.id ?? fields?.agentId;
+		const type = fields?.type ?? fields?.subagentType;
+		if (typeof id === "string" && typeof type === "string") types.set(id, type);
+	}
+	return types;
+}
 
 export function rebuild(entries: readonly unknown[]): ReviewState {
 	const state = new ReviewState();
@@ -110,9 +122,17 @@ const STRIP_LITERALS = (command: string) =>
 		.replace(/<<-?\s*(['"]?)(\w+)\1([^\n]*)\n[\s\S]*?\n\s*\2(?=\s|$)/g, " $3")
 		.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''");
 const SEGMENTS = /&&|\|\||[;&|\n(){}`]|\$\(/;
-const LEADING = new Set(["!", "then", "do", "else", "elif", "if", "while", "until", "time", "command", "builtin", "exec", "env", "nohup", "sudo", "xargs"]);
+const LEADING = new Set(["!", "then", "do", "else", "elif", "if", "while", "until", "time", "command", "builtin", "exec", "env", "nohup", "xargs"]);
+// Prefijos que lanzan otra orden. Sus opciones con valor llevan el valor en la palabra siguiente.
+const WRAPPERS: Record<string, { values: ReadonlySet<string>; operand: boolean }> = {
+	timeout: { values: new Set(["-s", "--signal", "-k", "--kill-after"]), operand: true },
+	nice: { values: new Set(["-n", "--adjustment"]), operand: false },
+	sudo: { values: new Set(["-u", "--user", "-g", "--group", "-h", "--host", "-p", "--prompt", "-C", "--close-from", "-D", "--chdir", "-r", "--role", "-t", "--type", "-U", "--other-user", "-T", "--command-timeout"]), operand: false },
+};
 // Opciones globales de git que llevan el valor en la palabra siguiente.
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env", "--exec-path"]);
+// gh y glab eligen el repositorio con -R o --repo.
+const REPO_OPTIONS = new Set(["-R", "--repo"]);
 
 function subcommands(words: readonly string[], valueOptions: ReadonlySet<string>): string[] {
 	const found: string[] = [];
@@ -126,11 +146,18 @@ function subcommands(words: readonly string[], valueOptions: ReadonlySet<string>
 
 function segmentPublishes(segment: string): boolean {
 	const words = segment.trim().split(/\s+/).filter(Boolean);
-	while (words.length && (LEADING.has(words[0]) || /^\w+=/.test(words[0]) || words[0].startsWith("-"))) words.shift();
+	for (;;) {
+		while (words.length && (LEADING.has(words[0]) || /^\w+=/.test(words[0]) || words[0].startsWith("-"))) words.shift();
+		const wrapper = WRAPPERS[words[0]?.replace(/^.*\//, "")];
+		if (!wrapper) break;
+		words.shift();
+		while (words[0]?.startsWith("-")) if (wrapper.values.has(words.shift() as string)) words.shift();
+		if (wrapper.operand) words.shift();
+	}
 	const name = words[0]?.replace(/^.*\//, "");
 	const rest = words.slice(1);
 	if (name === "git") return subcommands(rest, GIT_VALUE_OPTIONS)[0] === "push";
-	const [object, action] = subcommands(rest, new Set());
+	const [object, action] = subcommands(rest, REPO_OPTIONS);
 	if (name === "glab") return object === "mr" && (action === "create" || action === "new");
 	if (name === "gh") return object === "pr" && (action === "create" || action === "new");
 	return false;

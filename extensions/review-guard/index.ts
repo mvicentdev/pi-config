@@ -1,20 +1,28 @@
 // Nada se publica hasta que un verifier en contexto limpio aprueba el último cambio.
 // La regla escrita no bastaba: el bucle principal publicaba o pedía el visto bueno tras un arreglo que nadie revisó.
 // Cambian el trabajo edit, write, lsp_fix con write: true y un worker que acaba. Lo revisa un verifier cuyo informe dice pass.
-// Mientras quede un cambio sin revisar, rechaza en bash git push, glab mr create y gh pr create.
+// Mientras quede un cambio sin revisar o un worker en marcha, rechaza en bash git push, glab mr create y gh pr create.
 // Cada agente de agents/ la excluye con exclude_extensions, así que solo actúa en el bucle principal.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { agentFromToolResult, applyAgent, changesFiles, PUBLISH_REASON, publishes, rebuild, ReviewState } from "./review.ts";
+import { agentFromToolResult, agentTypes, applyAgent, changesFiles, PUBLISH_REASON, publishes, rebuild, ReviewState } from "./review.ts";
 
 export function createReviewGuard(now: () => number = Date.now) {
 	return function reviewGuard(pi: ExtensionAPI) {
 		let state = new ReviewState();
 		// Una llamada que cambia ficheros y aún corre, en paralelo con el push.
 		const running = new Set<string>();
+		// Los ids de los workers lanzados por pi-subagents que aún no han acabado.
+		const workers = new Set<string>();
+		// El tipo de cada agente por su id. Un Agent con resume reanuda ese tipo, no el de subagent_type.
+		let types = new Map<string, string>();
+		const isWorker = (type: unknown) => String(type).toLowerCase() === "worker";
 
 		// Al empezar, recargar o cambiar de rama, el estado sale de las entradas de la rama actual.
+		// Los workers en marcha siguen en marcha: solo su final los quita.
 		const reconstruct = (_event: unknown, ctx: ExtensionContext) => {
-			state = rebuild(ctx.sessionManager.getBranch());
+			const branch = ctx.sessionManager.getBranch();
+			state = rebuild(branch);
+			types = new Map([...types, ...agentTypes(branch)]);
 			running.clear();
 		};
 		pi.on("session_start", reconstruct);
@@ -22,16 +30,20 @@ export function createReviewGuard(now: () => number = Date.now) {
 
 		pi.on("tool_call", (event) => {
 			const input = (event.input ?? {}) as Record<string, unknown>;
-			const worker = event.toolName === "Agent" && String(input.subagent_type).toLowerCase() === "worker";
+			// Un agente reanudado de tipo desconocido puede ser un worker.
+			const resumed = typeof input.resume === "string" && input.resume ? (types.get(input.resume) ?? "worker") : undefined;
+			const worker = event.toolName === "Agent" && isWorker(resumed ?? input.subagent_type);
 			if (changesFiles(event.toolName, input) || worker) running.add(event.toolCallId);
 			if (event.toolName !== "bash" || !publishes(String(input.command ?? ""))) return undefined;
-			return state.unreviewed() || running.size > 0 ? { block: true, reason: PUBLISH_REASON } : undefined;
+			return state.unreviewed() || running.size > 0 || workers.size > 0 ? { block: true, reason: PUBLISH_REASON } : undefined;
 		});
 
 		pi.on("tool_result", (event) => {
 			if (event.isError) return undefined;
 			if (changesFiles(event.toolName, event.input)) state.change(now());
 			if (event.toolName === "Agent") {
+				const { agentId, subagentType } = (event.details ?? {}) as Record<string, unknown>;
+				if (typeof agentId === "string" && typeof subagentType === "string") types.set(agentId, subagentType);
 				const outcome = agentFromToolResult(event.details, event.content, now());
 				if (outcome) applyAgent(state, outcome);
 			}
@@ -43,9 +55,21 @@ export function createReviewGuard(now: () => number = Date.now) {
 			running.delete(event.toolCallId);
 		});
 
-		// Un agente en segundo plano avisa al acabar con estos eventos de pi-subagents.
+		// pi-subagents avisa con subagents:created al lanzar o reanudar en segundo plano.
+		// Avisa con subagents:started cuando un agente empieza a correr, también desde la cola o por RPC. Ambos llevan el tipo real.
+		const started = (data: unknown) => {
+			const { id, type } = (data ?? {}) as Record<string, unknown>;
+			if (typeof id !== "string" || typeof type !== "string") return;
+			types.set(id, type);
+			if (isWorker(type)) workers.add(id);
+		};
+		pi.events.on("subagents:created", started);
+		pi.events.on("subagents:started", started);
+
+		// Un agente avisa al acabar con estos eventos de pi-subagents.
 		const finished = (data: unknown) => {
-			const { type, status, result, durationMs } = (data ?? {}) as Record<string, unknown>;
+			const { id, type, status, result, durationMs } = (data ?? {}) as Record<string, unknown>;
+			if (typeof id === "string") workers.delete(id);
 			if (typeof type !== "string" || typeof status !== "string") return;
 			const at = now();
 			applyAgent(state, { type, status, report: result, startedAt: at - (typeof durationMs === "number" ? durationMs : 0), completedAt: at });

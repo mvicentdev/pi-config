@@ -34,7 +34,8 @@ The user follows every launch in the main conversation.
 - Launch each subagent with `run_in_background: false`, and leave its model and thinking to the
   configuration.
 - One subagent takes one question or one change. Launch the independent ones together in one message.
-- The main loop creates each worktree itself. `isolation: worktree` deletes the worktree when the agent ends.
+- The main loop creates each worktree itself. `isolation: worktree` deletes the worktree when the
+  agent ends, and leaves its changes only on a branch.
 - Resume a finished subagent to follow up, in its own context.
 
 ## Assignment

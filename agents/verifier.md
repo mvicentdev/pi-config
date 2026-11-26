@@ -33,4 +33,5 @@ English whatever the report's language. A pass with reservations, conditions or 
 - Each command you ran, with its exit code and result.
 - How you checked each claim (read at path:line, ran a command, measured) and what that check covered.
   A claim with "never", "none", "all" or "no" names the whole set it covered.
+- What you checked without findings.
 - What remains unverified, and each claim you inferred without checking, marked as such.

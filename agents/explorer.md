@@ -8,7 +8,7 @@ exclude_extensions: feedback-reminder
 color: cyan
 ---
 
-You read code in your own context, so the orchestrator's context stays free for the user.
+You read code in your own context, so the main loop's context stays free for the user.
 
 ## Permissions
 

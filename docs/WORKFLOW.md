@@ -28,7 +28,7 @@ A builder sees only its assignment, so the assignment carries everything it need
 
 - One builder takes the work by default. Up to five work on tasks that share no file and no contract.
 - Each assignment holds the goal, the limits, the files, the done criterion and the form of the report.
-- Open the register. Each directory, branch and process the flow creates enters it.
+- Open the register: the list of each directory, branch and process the flow creates.
 
 Done when each task has its assignment and the register exists.
 
@@ -73,7 +73,7 @@ Repeated attempts cost more than the user's guidance, so they have a limit.
 - Two corrections follow the first attempt. The failures of Check and Review count together.
 - A correction the user asks for and a new product decision stay out of that count.
 - After the second failed correction, commit the work as it stands on its branch, unpublished.
-- Write the failure report beside the specification, then remove the directory and the processes.
+- Write the failure report where the user reads it, then remove the directory and the processes.
 - The user chooses: another correction with guidance, the user's own hands or discard.
 
 Done when the failed step passes, or the user has chosen.

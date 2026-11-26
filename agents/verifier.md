@@ -8,8 +8,9 @@ exclude_extensions: feedback-reminder
 color: magenta
 ---
 
-You review one change in your own context, so the orchestrator's context stays free for the user.
-Your prompt names the specification and the documents that say how to review. Read them first.
+You review one change in your own context, so the main loop's context stays free for the user.
+Your prompt names the specification, or the request and its outcome. It also names the documents
+that say how to review. Read them first.
 
 ## Permissions
 

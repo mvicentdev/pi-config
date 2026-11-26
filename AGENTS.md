@@ -22,7 +22,7 @@ the evidence supports.
 - Under pushback, keep the verdict the evidence supports. When it changes, name the fact that changed it.
 - State as fact only what you checked this session, and mark the rest unverified.
 - Grep the repository for a thing's English code name before you say the code lacks it.
-- Have the verifier check, in a fresh context, a verdict that is costly to reverse.
+- Have an independent reviewer check, in a fresh context, a verdict that is costly to reverse.
 
 ## Route
 

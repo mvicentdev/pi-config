@@ -8,7 +8,7 @@ macOS y en Linux; en Windows no, porque `install.sh` es de bash y usa enlaces si
 
 - Lo personal de `~/.pi/agent` no se sobrescribe ni se borra sin que el usuario lo apruebe:
   `auth.json`, `settings.json`, `models.json`, `APPEND_SYSTEM.md`, `status-line.json`,
-  `max-width.json`, `autocorrect.json`, `trust.json`, sesiones y temas propios.
+  `max-width.json`, `autocorrect.json`, `advisor.json`, `trust.json`, sesiones y temas propios.
 - `sudo`, `/login` y cualquier contraseña los hace el usuario en su terminal; el agente le da el
   comando exacto y espera. Lo mismo vale para lo que haya que hacer con la cuenta de otro usuario.
 - Un commit local no necesita aprobación. El push a `main` espera el visto bueno del usuario, que antes ve los cambios de la rama.
@@ -33,7 +33,7 @@ preferencia sobre lo común:
   actualiza. Si aparece otra fuente que ya traiga este paquete, sea una ruta local a un clon o uno de
   los paquetes de las `dependencies` de [package.json](package.json), se cargaría dos veces: propón
   quitarla con `pi remove <fuente>`.
-- Un `subagents.json`, `pi-fff.json` o `agents/` propios, que no sean enlaces, sustituyen a los comunes
+- Un `subagents.json`, `pi-fff.json`, `agents/` o `docs/` propios, que no sean enlaces, sustituyen a los comunes
   e `install.sh` los respeta. Si son copias antiguas sin cambios que el usuario quiera conservar,
   propón borrarlos.
 - Un `subagent-models.json` propio solo debe llevar lo que cambia respecto de

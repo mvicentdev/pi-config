@@ -10,7 +10,7 @@ subagent exists to protect it: it does one bounded task in its own context and h
 
 - A role is a label, never a specialist. It sets only what a subagent may touch and the form of its
   report.
-- The behaviour of a subagent comes from the skills and documents its prompt names.
+- The behaviour of a subagent comes from the skills and documents its prompt or its definition names.
 - The main loop keeps the plan, every decision, the synthesis and the conversation with the user.
 - A `worker` may edit, and builds every change to code and its tests. The main loop writes none of it.
 - `explorer` reads the code, `researcher` reads what lives outside it, and `verifier` reviews.
@@ -93,8 +93,7 @@ subagent exists to protect it: it does one bounded task in its own context and h
 
 ## Integrate and close
 
-- The request for go follows the form the `feedback-reminder` extension sets.
+- The request for go asks the approval of Integrate, in the form the `feedback-reminder` extension sets.
 - After the go, the main loop merges the branch into the destination and pushes it, unless the user
-  keeps it local. The project's
-  merge request skill does it when the project has one.
+  keeps it local. The project's merge request skill does it when the project has one.
 - Close uses the repository's own cleanup command when it ships one.

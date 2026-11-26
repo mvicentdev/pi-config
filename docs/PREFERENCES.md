@@ -1,7 +1,7 @@
 # PREFERENCES.md
 
-What the user keeps constant in everything the agents write, in every project. The feedback
-extension sets how a message to the user reads.
+What the user keeps constant in everything the agents write, in every project. The
+`feedback-reminder` extension sets how a message to the user reads.
 
 ## Rules for agents
 
@@ -12,7 +12,7 @@ A setting applies every time. A written rule applies only when an agent reads it
 - Each document holds one responsibility, within 100 lines. A project's entry file holds 60, or the
   ceiling the project sets.
 - The entry file is always in context. It points to each document, and no document points back to it.
-- Each document is one step away from the entry file, and needs no other document to be followed.
+- Each document is one step away from the entry file. Only a document that adopts another needs it.
 - Each section opens with the human reason for its rules.
 - A line enters a document only after an agent failed without it.
 

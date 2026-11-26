@@ -175,7 +175,8 @@ test("un worker en segundo plano aún en marcha impide publicar hasta que acaba"
 
 // Un worker en cola que se para no avisa con subagents:completed ni subagents:failed.
 // Tampoco uno aislado en un worktree que se para mientras se crea su copia.
-test("un worker que pi-subagents ya no tiene en marcha deja de impedir publicar", () => {
+// Pudo editar ficheros antes de pararse: cuenta como cambio hasta que un verifier lo revisa.
+test("un worker que pi-subagents ya no tiene en marcha deja de impedir publicar tras revisarlo", () => {
 	const records = new Map<string, { status: string }>();
 	const s = session([], () => ({ getRecord: (id: string) => records.get(id) }));
 	records.set("w1", { status: "queued" });
@@ -184,14 +185,30 @@ test("un worker que pi-subagents ya no tiene en marcha deja de impedir publicar"
 	records.set("w1", { status: "running" });
 	assert.deepEqual(s.push(), REFUSED);
 	records.set("w1", { status: "stopped" });
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
 	assert.equal(s.push(), undefined);
 	// Un registro que pi-subagents ya ha borrado tampoco corre.
 	s.emit("subagents:started", { id: "w2", type: "worker", description: "gone" });
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
 	assert.equal(s.push(), undefined);
 	// Un registro sin getRecord no sirve: cuentan los eventos.
 	const t = session([], () => ({}));
 	t.emit("subagents:started", { id: "w3", type: "worker", description: "fix" });
 	assert.deepEqual(t.push(), REFUSED);
+});
+
+// Un worker parado desde la interfaz pasa a stopped al instante, pero su subagents:failed llega después.
+test("un worker parado sin aviso aún cuenta como cambio", () => {
+	const records = new Map<string, { status: string }>();
+	const s = session([], () => ({ getRecord: (id: string) => records.get(id) }));
+	records.set("w1", { status: "running" });
+	s.emit("subagents:started", { id: "w1", type: "worker", description: "fix" });
+	records.set("w1", { status: "stopped" });
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
+	assert.equal(s.push(), undefined);
 });
 
 test("un worker reanudado en primer plano impide publicar mientras corre", () => {

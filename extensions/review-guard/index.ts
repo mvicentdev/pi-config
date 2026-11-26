@@ -23,12 +23,15 @@ export function createReviewGuard(now: () => number = Date.now, registry: () => 
 		const isWorker = (type: unknown) => String(type).toLowerCase() === "worker";
 		// Un worker en cola que se para, o uno que se para al crear su worktree, no avisa al acabar.
 		// Al publicar, pi-subagents dice cuáles siguen en cola o en marcha. Sin registro cuentan solo los eventos.
+		// Un worker que ya no corre pudo editar ficheros. Su subagents:failed llega tarde, así que cuenta ya como cambio.
 		const workersRunning = () => {
 			const subagents = registry() as Subagents | undefined;
 			if (typeof subagents?.getRecord !== "function") return workers.size > 0;
 			for (const id of workers) {
 				const status = subagents.getRecord(id)?.status;
-				if (status !== "running" && status !== "queued") workers.delete(id);
+				if (status === "running" || status === "queued") continue;
+				workers.delete(id);
+				state.change(now());
 			}
 			return workers.size > 0;
 		};
@@ -51,7 +54,8 @@ export function createReviewGuard(now: () => number = Date.now, registry: () => 
 			const worker = event.toolName === "Agent" && isWorker(resumed ?? input.subagent_type);
 			if (changesFiles(event.toolName, input) || worker) running.add(event.toolCallId);
 			if (event.toolName !== "bash" || !publishes(String(input.command ?? ""))) return undefined;
-			return state.unreviewed() || running.size > 0 || workersRunning() ? { block: true, reason: PUBLISH_REASON } : undefined;
+			// workersRunning va primero: puede anotar un cambio que state.unreviewed debe ver.
+			return workersRunning() || running.size > 0 || state.unreviewed() ? { block: true, reason: PUBLISH_REASON } : undefined;
 		});
 
 		pi.on("tool_result", (event) => {

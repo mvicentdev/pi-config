@@ -20,7 +20,6 @@ Only the user knows what the product must do. Only a change with open product de
 - The specification adds the acceptance criteria, the user's decisions, the scope left out and the assumptions.
 - Each criterion is a behaviour someone can observe, with the way to check it.
 - A criterion no automatic check covers is marked as the user's manual check, with its steps.
-- Each answer of the user to a product question enters the specification as a decision.
 
 Done when the user approves the specification in writing, where the user reads it.
 
@@ -50,8 +49,7 @@ Done when each builder has handed in its report.
 
 An author tends to confirm its own work, so someone else runs the checks.
 
-- The main loop runs the tests, the static analysis and the style check.
-- With several builders, the checks run again on the branch that joins their work.
+- The main loop runs the tests, the static analysis and the style check, and again on a joined branch.
 - The evidence is the exit code and the output of each program, never an agent's claim.
 
 Done when every check passes on the branch to integrate. A failure goes to Correct, and Review waits.
@@ -88,18 +86,15 @@ The user answers for what is published, so nothing is published without the user
 - The request names the destination: the parent branch, unless the user names another.
 - An approval publishes the change to the shared repository, unless the user keeps it local.
 - A correction the user asks for returns to the same builder. Check runs again, and Review covers the fix.
-- A change the user discards goes to Close.
 
 Done when the change is integrated where the user approved, or discarded.
 
 ## 8. Close
 
-Leftover directories and processes confuse the next task and cost the user a cleanup.
+Leftover directories and processes confuse the next task, so Close runs by itself, without asking.
 
-- Close runs by itself once the change is integrated or discarded.
 - Walk the register and remove each directory, branch, process, container and temporary file.
 - Force a process that will not stop, and report it.
-- A discard removes the branch too. Until the user says discard, every branch stays.
-- Keep each entry that holds unpublished work the user has not discarded.
+- Until the user says discard, every branch and every entry that holds unpublished work stays.
 
 Done when the register holds only such work, and the report names what was removed and kept.

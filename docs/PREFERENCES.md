@@ -36,4 +36,8 @@ The user opens each page in a browser of his own, outside any host application.
 - Colours are pastel and flat, with crisp borders, rounded corners and a dotted background.
 - Light and dark themes both work, and motion respects the reduced-motion setting.
 - The code is short and minimal.
-- Give the path of the page. The user opens and reloads it.
+- A page that shows content that changes is served by a local server. The server watches the sources
+  and the page reloads by itself when one changes.
+- The page keeps each choice of the user in local storage, such as the theme, the selection and the
+  reading position, and restores it on reload.
+- Give the address of the page. The user opens it.

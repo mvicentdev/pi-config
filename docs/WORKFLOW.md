@@ -19,8 +19,6 @@ Done when the notes file holds the route, the outcome and each check.
 Only the user knows what the product must do. Only a change with open product decisions takes this step.
 
 - The `vault` skill writes it, with the criteria, the user's decisions, the scope left out and the assumptions.
-- Each criterion is a behaviour someone can observe, with the way to check it.
-- A criterion no automatic check covers is marked as the user's manual check, with its steps.
 
 Done when the user approves the specification in writing.
 
@@ -32,12 +30,11 @@ Two workers that share a file undo each other's work, so each one gets its own w
 - Tasks that depend on one another go to one worker, resumed for each next task.
 - Create one worktree per worker, on a branch forked from the parent branch, where the task started.
 - Use the repository's own worktree command and branch rules when it ships them.
-- Otherwise the `worktrunk` skill manages worktrees. Run each of its `wt` commands as `git wt`,
-  because `wt` alone is another program here.
+- Otherwise the `worktrunk` skill creates them, shares their dependencies, tethers their processes
+  and prunes them. Run each of its `wt` commands as `git wt`, because `wt` alone is another program.
 - Without rules, the branch is `<conventional-commit-type>/<concept>-<operation>` in kebab-case.
 - Before a parallel launch, write to the notes file the names, interfaces and form the workers share.
-- Open the register beside the notes file: one line per worktree, branch, process, container, volume,
-  image and temporary file.
+- Open the register beside the notes file: one line per thing the flow creates.
 
 Done when each task has its written assignment, and the register lists each worktree and branch.
 
@@ -45,10 +42,7 @@ Done when each task has its written assignment, and the register lists each work
 
 A test written after the code proves only what the code already does.
 
-- The worker's prompt copies this section, lists each acceptance criterion and names the notes file.
 - Each behaviour leaves a test that simulates its real use.
-- The worktree takes its dependencies with `git wt step copy-ignored`, which uses no extra disk.
-- Each process starts with `git wt step tether`, so it dies when its worktree is removed.
 - With a specification, the worker writes one test per criterion and sees it fail before the code.
 - Those tests stay as written. The worker reports any change to them, and it is reviewed apart.
 - An open product decision stops the worker. The user's answer joins the decisions, and work goes on.
@@ -70,12 +64,11 @@ Done when every check exits 0 on the branch to integrate. A failure goes to Corr
 
 The user gives the go on the reviewer's word, so a `verifier` starts without the worker's context.
 
-- Its prompt copies this section, and carries the specification and the base of the diff.
 - It reviews the diff of the branch against the parent branch, criterion by criterion.
 - Without a specification, it reviews the diff against the request and its declared outcome.
 - It gives one verdict per criterion with the test that proves it, and one for the change.
-- It confirms each finding against the code. A finding is also a test that does not prove its
-  criterion, or one that does not match the failing run the worker reported.
+- A finding is also a test that does not prove its criterion, or one that does not match the failing
+  run the worker reported.
 - The main loop names each finding it discards, with the reason. One that breaks the request blocks.
 
 Done when the change and each criterion have a passing verdict. A failure goes to Correct.
@@ -113,7 +106,6 @@ Leftover worktrees and processes confuse the next task, so Close runs by itself,
 
 - Walk the register and remove each entry, with the repository's own cleanup command when it ships one.
 - Force a process that will not stop, and report it.
-- Run `git wt step prune` to remove each merged or orphaned worktree left behind.
 - Until the user says discard, every branch and every entry that holds unpublished work stays.
 
 Done when the register holds only such work, and the report names what was removed and kept.

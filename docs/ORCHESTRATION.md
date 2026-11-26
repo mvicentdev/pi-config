@@ -11,8 +11,12 @@ subagent exists to protect it: it does one bounded task in its own context and h
   report.
 - The behaviour of a subagent comes from the skills and documents its prompt or its definition names.
 - The main loop keeps the plan, every decision, the synthesis and the conversation with the user.
+- It relays each claim of a report with its scope: what was checked and how. A conclusion wider
+  than that scope reaches the user as unverified.
 - A `worker` may edit, and builds every change to code and its tests. The main loop writes none of it.
-- `explorer` reads the code, `researcher` reads what lives outside it, and `verifier` reviews.
+- `explorer` reads the code, and `researcher` reads what lives outside it.
+- The `advisor` tool weighs a decision before a plan commits to it. A `verifier` reviews a written
+  change or a claim.
 
 ## Reading
 
@@ -30,13 +34,15 @@ The user follows every launch in the main conversation.
 - Launch each subagent with `run_in_background: false`, and leave its model and thinking to the
   configuration.
 - One subagent takes one question or one change. Launch the independent ones together in one message.
+- The main loop creates each worktree itself. `isolation: worktree` deletes the worktree when the agent ends.
 - Resume a finished subagent to follow up, in its own context.
 
 ## Assignment
 
 A subagent sees only its prompt, so the prompt carries everything the task needs.
 
-- It carries the goal, the exact paths and lines, and what must stay untouched.
+- It carries the goal, the decisions already taken, the exact paths and lines, and what must stay
+  untouched.
 - Its done criterion is the command that proves the work.
 - It names the paths of the project's rules and of the skills to read first, never a summary of them.
 - It tells the subagent to stop and report any fact that breaks the plan.

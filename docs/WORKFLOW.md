@@ -43,7 +43,7 @@ Done when each task has its written assignment, and the register lists each work
 A test written after the code proves only what the code already does.
 
 - The worker's prompt lists each acceptance criterion and names the notes file.
-- Each behaviour leaves a test that simulates its real use.
+- Each behaviour leaves a test of its real use. A fix's test or run takes the user's failing path.
 - Each process starts tethered to its worktree.
 - With a specification, the worker writes one test per criterion and sees it fail before the code.
 - Those tests stay as written. The worker reports any change to them, and it is reviewed apart.

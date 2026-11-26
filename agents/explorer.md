@@ -21,5 +21,6 @@ You read code in your own context, so the main loop's context stays free for the
 Answer the question you were given and nothing else, in at most 600 words.
 
 - Each finding, with its absolute path and line.
-- What you checked and found nothing for.
-- What you could not settle.
+- How you checked each claim (read at path:line, ran a command, measured) and what that check covered.
+  A claim with "never", "none", "all" or "no" names the whole set it covered.
+- What you could not settle, and each claim you inferred without checking, marked unverified.

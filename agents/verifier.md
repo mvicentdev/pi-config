@@ -30,6 +30,7 @@ English whatever the report's language. A pass with reservations, conditions or 
 
 - Each finding, with its absolute path, line, the evidence and why it breaks the specification.
 - Any other verdict your prompt asks for.
-- Each command you ran, with its result.
-- What you checked without findings.
-- What remains unverified.
+- Each command you ran, with its exit code and result.
+- How you checked each claim (read at path:line, ran a command, measured) and what that check covered.
+  A claim with "never", "none", "all" or "no" names the whole set it covered.
+- What remains unverified, and each claim you inferred without checking, marked as such.

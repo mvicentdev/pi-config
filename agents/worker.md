@@ -22,6 +22,9 @@ Your prompt names the rules, skills and documents that say how to work. Read the
 ## Report
 
 - One line per file you changed.
-- Each command you ran, with its result and any failing output.
-- Each process, container or file outside your checkout that you started or left.
-- What is left undone.
+- Each command you ran, with its exit code, result and any failing output.
+- How you checked each claim (read at path:line, ran a command, measured) and what that check covered.
+  A claim with "never", "none", "all" or "no" names the whole set it covered.
+  Mark each claim you inferred without checking as unverified.
+- Each process, container or file outside your checkout that you started or left, with its absolute path.
+- What is left undone, and each assumption you took that the brief did not settle.

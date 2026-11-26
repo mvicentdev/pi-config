@@ -4,106 +4,72 @@ import { test } from "node:test";
 import { credentialsPathReason, credentialsReason } from "./credentials.ts";
 
 const home = "/home/ana";
-const blocked = (command: string) => credentialsReason(command, home) !== null;
+const blocked = (command: string) => credentialsReason(command) !== null;
 
-test("1. rechaza leer ~/.zshrc entero con cualquier lector y cualquier forma de ruta", () => {
-	for (const reader of ["cat", "head", "tail", "less", "more", "source", ".", "sed -n 1,5p", "awk 1", "grep alias"]) {
-		for (const path of ["~/.zshrc", "$HOME/.zshrc", "/home/ana/.zshrc"]) {
-			assert.ok(blocked(`${reader} ${path}`), `${reader} ${path}`);
-		}
-	}
-	assert.ok(blocked("ls && echo ok; cat ~/.zshrc"));
-	assert.ok(blocked("echo $(cat ~/.zshrc)"));
-	assert.ok(blocked("cat ~/.zshrc | head -5"));
-	assert.ok(blocked('cat "$HOME/.zshrc"'));
-});
-
-test("2. deja pasar grep sobre ~/.zshrc solo si el patrón empieza por ^alias ", () => {
-	assert.ok(!blocked('grep -m1 "^alias gp=" ~/.zshrc ~/.zsh_aliases'));
-	assert.ok(!blocked("grep '^alias gp=' $HOME/.zshrc"));
-	assert.ok(blocked('grep "export" ~/.zshrc'));
-	assert.ok(blocked('grep "alias gp" ~/.zshrc'));
-	assert.ok(blocked('grep -v "^alias " ~/.zshrc'));
-	assert.ok(blocked('grep -A 50 "^alias gp=" ~/.zshrc'));
-	assert.ok(blocked('grep -m1 "^alias gp=" ~/.zshrc; cat ~/.zshrc'));
-});
-
-test("3. rechaza imprimir el entorno", () => {
-	for (const command of ["zsh -i", "zsh -ic alias", "zsh -l", "env", "printenv", "set", "env | grep KEY", "ls; set"]) {
+test("1. blocks any command whose text names .zshrc", () => {
+	for (const command of [
+		"cat ~/.zshrc",
+		'bash -c "cat ~/.zshrc"',
+		"cd ~ && cat .zshrc",
+		"cat ~/.zshrc>/tmp/x",
+		"rg export $HOME/.zshrc",
+		'grep "^alias " ~/.zshrc',
+		'grep -E "^alias |export" ~/.zshrc',
+		'grep -m1 "^alias gp=" ~/.zshrc; cat ~/.zshrc',
+		'grep -v "^alias gp=" ~/.zshrc',
+	]) {
 		assert.ok(blocked(command), command);
 	}
-	for (const command of ["env FOO=1 node x.js", "set -e", "zsh script.sh", "git status", "echo settings"]) {
+	assert.ok(!blocked("cat ~/.zshrc.bak"));
+});
+
+test("2. lets one alias-lookup grep through", () => {
+	for (const command of [
+		'grep -m1 "^alias gp=" ~/.zshrc ~/.zsh_aliases',
+		"grep '^alias gp=' /home/ana/.zshrc",
+		'grep -n -H -e "^alias gp" ~/.zshrc',
+		'grep -m 2 "^alias gp=" ~/.zshrc',
+		'grep -h "^alias gp=" ~/.zshrc',
+	]) {
 		assert.ok(!blocked(command), command);
+	}
+	for (const command of ['grep "^alias gp=" ~/.zshrc x${IFS}-v', 'grep "^alias gp=" ~/.zshrc {-v,}']) {
+		assert.ok(blocked(command), command);
 	}
 });
 
-test("4. rechaza las herramientas read y grep sobre ~/.zshrc", () => {
+test("3. blocks the read and grep tools on ~/.zshrc and resolves relative paths against the cwd", () => {
 	for (const tool of ["read", "grep"]) {
 		for (const path of ["~/.zshrc", "/home/ana/.zshrc", "/home/ana/./.zshrc"]) {
 			assert.ok(credentialsPathReason(tool, path, home), `${tool} ${path}`);
 		}
 	}
+	assert.ok(credentialsPathReason("read", ".zshrc", home, home));
+	assert.equal(credentialsPathReason("read", ".zshrc", home, "/tmp/repo"), null);
 	assert.equal(credentialsPathReason("read", "/home/ana/.zsh_aliases", home), null);
-	assert.equal(credentialsPathReason("read", undefined, home), null);
 	assert.equal(credentialsPathReason("write", "~/.zshrc", home), null);
 });
 
-test("5. cada rechazo dice que nada corrió, que hay credenciales y la búsqueda de alias", () => {
-	const reasons = [
-		credentialsReason("cat ~/.zshrc", home),
-		credentialsReason("env", home),
-		credentialsPathReason("read", "~/.zshrc", home),
-	];
-	for (const reason of reasons) {
+test("4. the reason says nothing ran, that the file holds credentials, and names the alias lookup", () => {
+	for (const reason of [credentialsReason("cat ~/.zshrc"), credentialsPathReason("read", "~/.zshrc", home)]) {
 		assert.ok(reason);
 		assert.match(reason, /Blocked before running: no part of this (command|call) ran/);
 		assert.match(reason, /credentials/);
 		assert.match(reason, /grep "\^alias name=" ~\/\.zshrc/);
+		assert.doesNotMatch(reason, /environment/);
 	}
 });
 
-test("7. rechaza cualquier orden con ~/.zshrc como argumento salvo la búsqueda de alias", () => {
-	for (const command of ["rg export ~/.zshrc", "egrep KEY ~/.zshrc", "cp ~/.zshrc /tmp/x", "echo ~/.zshrc"]) {
-		assert.ok(blocked(command), command);
-	}
-	for (const command of ['grep -m1 "^alias gp=" ~/.zshrc ~/.zsh_aliases', "ls ~"]) {
-		assert.ok(!blocked(command), command);
-	}
-});
-
-test("6. no toca las órdenes ajenas", () => {
-	for (const command of ["ls", "cat /tmp/a.txt", "cat ~/.zshrc.bak", "git log | head -5", "echo hello", "grep foo ~/.zsh_aliases"]) {
-		assert.equal(credentialsReason(command, home), null, command);
-	}
-});
-
-test("8. zshrc por texto crudo, impresores de entorno recursivos y ruta relativa contra el cwd", () => {
-	const blockedCommands = [
-		'bash -c "cat ~/.zshrc"',
-		"zsh -c 'source ~/.zshrc'",
-		"cat ~/.zshrc>/tmp/x",
-		"cd ~ && cat .zshrc",
-		'grep -E "^alias |export" ~/.zshrc',
-		'grep -m1 "^alias gp=" ~/.zshrc; cat ~/.zshrc',
-		"bash -c env",
-		"sudo env",
-		"command env",
-		"exec env",
+test("5. blocks nothing else, including commands that print the environment", () => {
+	for (const command of [
+		"env",
 		"printenv OPENAI_KEY",
+		"set",
 		"export -p",
-		"declare -x",
-	];
-	for (const command of blockedCommands) assert.ok(blocked(command), command);
-	const allowedCommands = [
-		'grep -m1 "^alias gp=" ~/.zshrc ~/.zsh_aliases',
-		"cat ~/.zshrc.bak",
-		"set -e",
-		"env FOO=1 node x.js",
-		"export FOO=1",
-		'bash -c "echo hi"',
-		'echo "a; set"',
-	];
-	for (const command of allowedCommands) assert.ok(!blocked(command), command);
-	assert.equal(credentialsPathReason("read", ".zshrc", home, "/tmp/repo"), null);
-	assert.ok(credentialsPathReason("read", ".zshrc", home, home));
+		"zsh -i",
+		"sudo env",
+		"python3 - <<'EOF'\nenv\nx = sorted(set(xs))\nprint(env)\nEOF",
+	]) {
+		assert.equal(credentialsReason(command), null, command);
+	}
 });

@@ -22,7 +22,7 @@ export default function bashGuard(pi: ExtensionAPI) {
 			const reason = credentialsPathReason(event.toolName, path, homedir(), ctx.cwd);
 			return reason ? { block: true, reason } : undefined;
 		}
-		const credentials = credentialsReason(String(event.input.command ?? ""), homedir());
+		const credentials = credentialsReason(String(event.input.command ?? ""));
 		if (credentials) return { block: true, reason: credentials };
 		const blocked = fileCommand(String(event.input.command ?? ""), ctx.cwd);
 		if (!blocked) return undefined;

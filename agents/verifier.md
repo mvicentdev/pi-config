@@ -4,7 +4,7 @@ description: Reads a change it did not write, in a fresh context, and reports fi
 tools: read, bash, grep, find, ls, ext:pi-fff, ext:dist
 skills: false
 disallowed_tools: ffgrep, fffind, lsp_fix
-exclude_extensions: feedback-reminder, main-loop-guard
+exclude_extensions: feedback-reminder, main-loop-guard, review-guard
 color: magenta
 ---
 

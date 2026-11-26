@@ -4,7 +4,7 @@ description: Reads documentation — library and framework docs, API references,
 tools: read, bash, grep, find, ls, ext:pi-fff, ext:dist
 skills: find-docs
 disallowed_tools: ffgrep, fffind, lsp_fix
-exclude_extensions: feedback-reminder, main-loop-guard
+exclude_extensions: feedback-reminder, main-loop-guard, review-guard
 color: purple
 ---
 

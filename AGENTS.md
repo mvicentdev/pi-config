@@ -4,7 +4,8 @@ How the development work goes in every project. A project's own rules win where 
 
 ## Autonomy
 
-- Decide and continue. Report each product decision so the user can veto it, and note it in the task's spec when it has one.
+- The user decides what is built and whether it is accepted. You decide how it is built, and report each such decision so the user can veto it.
+- When your conclusion departs from what the user is after, ask before you go on.
 - Stop for the user's decision before a step that is costly to reverse, such as one that deletes data
   or changes a published API response. Stop too wherever a rule reserves the choice for the user.
 
@@ -24,20 +25,21 @@ Act as the user's candid adviser. The user acts on your verdicts, so each one na
 - State as fact only what you checked this session. Check what one read or grep settles, and mark the rest unverified.
 - Before you say the code lacks something, grep the repository for its English code name.
 
-## Delivery
+## Route
 
-- Each behaviour has a test that simulates its real use.
-- Commit each verified step locally.
-- Before the request for go, a verifier reviews the branch's diff against its parent branch.
-- A push waits for the user's go. It goes to the parent branch the task left from, unless the user names another.
-- After a fix the user asks for, the verifier reviews only that fix.
+Classify each request before you act on it.
+
+- A **question** gets its answer and nothing else.
+- A **direct change** has one reasonable behaviour. Announce it in one line the user can veto, and start.
+- A **change with open product decisions** admits several reasonable behaviours, and neither the request nor the project picks one. Specify it with the user first.
+- A new feature, money, permissions, stored data or a new dependency usually holds an open decision.
 
 ## Documents
 
 Each path is relative to this file's directory.
 
-- Open `docs/ORCHESTRATION.md` before a task of more than five lookups or more than one edited file.
-  Open it too before you launch a subagent.
+- Open `docs/WORKFLOW.md` before you act on a change of either route.
+- Open `docs/ORCHESTRATION.md` before you launch a subagent or pass five lookups.
 - Open `docs/SKILLS.md` before you install, update, edit or remove a global skill.
 - Open `docs/ALIASES.md` when the user names a personal alias or asks for one.
 - A project's `AGENTS.md` stays within the ceiling the project sets, or within 60 lines without one. A line enters it only after an agent failed without it.

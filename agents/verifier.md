@@ -26,7 +26,9 @@ Answer in at most 600 words.
 
 - Each finding, with its absolute path, line, the evidence and why it breaks the specification.
   Re-check it against the code before you list it.
-- The verdict: pass or fail.
+- The verdict of each acceptance criterion, pass or fail, with the test that proves it. A test that
+  does not prove its criterion is a finding.
+- The verdict of the change: pass or fail.
 - Each command you ran, with its result.
 - What you checked without findings.
 - What remains unverified.

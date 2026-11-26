@@ -28,7 +28,7 @@ personal previo pasa a `APPEND_SYSTEM.md`.
 |---|---|
 | `AGENTS.md` | Instrucciones globales del agente |
 | `agents/` | Subagentes `explorer`, `researcher`, `worker` y `verifier` |
-| `docs/` | Documentos que cita `AGENTS.md`: `ORCHESTRATION.md` (reparto de trabajo entre subagentes), con `CHECKOUTS.md`. También `SKILLS.md` (gestión de skills globales) y `ALIASES.md` (alias personales) |
+| `docs/` | Documentos que cita `AGENTS.md`: `WORKFLOW.md` (los ocho pasos de un cambio, de la petición al cierre) y `ORCHESTRATION.md` (las herramientas de cada paso y el reparto entre subagentes). También `SKILLS.md` (gestión de skills globales) y `ALIASES.md` (alias personales) |
 | `themes/` | Temas `Gentleman-Sexy` y `ghostty-acid-lime-magenta` |
 | `skills/` | `find-docs`, documentación de librerías con Context7, que precarga `researcher` |
 | `subagents.json`, `pi-fff.json` | Ajustes de pi-subagents y pi-fff |

@@ -56,14 +56,22 @@ Assistant: La creación de clientes rechaza un correo sin formato válido. Todas
 ### Request for go
 
 - It says what is left undone, the real run that proves the change and each finding left open.
+- A table gives each acceptance criterion with the test or run that proves it. A manual check gives its steps instead.
+- It gives each check command with its exit code, and the reviewer's verdict.
+- It says how to revert the change, and each assumption taken.
 - It names the part most likely to fail and why, so the user reads it first.
 - One clause sums up the tests, documents and settings the change touches.
 - One block lists each source file the change touches. The code itself stays in the files.
-- It closes with the destination branch and whether a merge request opens.
+- It closes with the destination, pushed or local, and whether a merge request opens.
 - After a fix the user asks for, the new request names only that difference.
 
 <example>
-Una campaña duplicada conserva sus textos y empieza en borrador. Una llamada real responde 201 con la copia. Queda fuera la copia de imágenes. El revisor no encontró fallos. Dos pruebas nuevas cubren la copia. Lo más delicado es la copia de textos, porque reutiliza el guardado de la campaña original.
+Una campaña duplicada conserva sus textos y empieza en borrador. Una llamada real responde 201 con la copia. Queda fuera la copia de imágenes, y un solo commit lo revierte. El revisor no encontró fallos. Dos pruebas nuevas cubren la copia. Lo más delicado es la copia de textos, porque reutiliza el guardado de la campaña original.
+
+| Criterio | Prueba |
+| --- | --- |
+| La copia conserva los textos | prueba de duplicado, pasa |
+| La copia empieza en borrador | prueba de estado inicial, pasa |
 
 ```
 src/Campaign/Application/DuplicateCampaign.php

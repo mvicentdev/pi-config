@@ -32,6 +32,8 @@ Two workers that share a file undo each other's work, so each one gets its own w
 - Tasks that depend on one another go to one worker, resumed for each next task.
 - Create one worktree per worker, on a branch forked from the parent branch, where the task started.
 - Use the repository's own worktree command and branch rules when it ships them.
+- Otherwise the `worktrunk` skill manages worktrees. Run each of its `wt` commands as `git wt`,
+  because `wt` alone is another program here.
 - Without rules, the branch is `<conventional-commit-type>/<concept>-<operation>` in kebab-case.
 - Before a parallel launch, write to the notes file the names, interfaces and form the workers share.
 - Open the register beside the notes file: one line per worktree, branch, process, container, volume,

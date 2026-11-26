@@ -9,10 +9,11 @@ A setting applies every time. A written rule applies only when an agent reads it
 
 - Impose a behaviour with a setting, a hook or an extension when one can. Write a rule only for what
   no configuration can impose.
-- Each document holds one responsibility, within 100 lines. A project's entry file holds 60, or the
+- Each document holds one responsibility, within 120 lines. A project's entry file holds 60, or the
   ceiling the project sets.
 - The entry file is always in context. It points to each document, and no document points back to it.
-- Each document is one step away from the entry file. Only a document that adopts another needs it.
+- Each document is one step away from the entry file, and names another only where its own rule
+  needs it.
 - Each section opens with the human reason for its rules.
 - Each concept keeps one name, and each cited file, section and name exists. After an edit, grep the
   documents for what it renamed or removed.

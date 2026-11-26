@@ -5,14 +5,16 @@ project's skill that defines its own procedure outranks this file.
 
 ## Roles
 
+The main loop's context holds the conversation with the user, and it degrades as it fills. A
+subagent exists to protect it: it does one bounded task in its own context and hands back a report.
+
+- A role is a label, never a specialist. It sets only what a subagent may touch and the form of its
+  report.
+- The behaviour of a subagent comes from the skills and documents its prompt names.
 - The main loop keeps the plan, every decision, the synthesis and the conversation with the user.
-- A `worker` builds every change to code and its tests. The main loop writes none of it.
-- `explorer` reads the code and `researcher` reads what lives outside it.
-- `verifier` is the independent reviewer.
-- A subagent does one bounded task in its own context and hands back a report.
+- A `worker` may edit, and builds every change to code and its tests. The main loop writes none of it.
+- `explorer` reads the code, `researcher` reads what lives outside it, and `verifier` reviews.
 - A launch leaves the model and thinking to the configuration.
-- When a skill asks for a subagent of its own, the matching role runs it with the skill's instructions
-  in its prompt.
 
 ## Where each result lives
 
@@ -53,9 +55,10 @@ project's skill that defines its own procedure outranks this file.
 - The prompt is self-contained. It carries the goal, the exact paths and lines, and what must stay
   untouched.
 - Its done criterion is the command that proves the work.
-- With a specification, it lists each acceptance criterion the worker must test first.
-- It names what the task adds to the role's report format.
-- It names the paths of the instructions and skills to read before working, never a summary of them.
+- It names the paths of the project's rules and of the skills to read first, never a summary of them.
+- A `worker` prompt names `WORKFLOW.md`, whose Build step it follows, and lists each acceptance
+  criterion. Its report adds the failing run of each criterion test.
+- A `verifier` prompt names `WORKFLOW.md`, whose Review step it follows.
 - It tells the subagent to stop and report any fact that breaks the plan.
 - A `verifier` prompt carries the specification, or the request with its declared outcome. It also
   carries the base of the diff and the path of the project's review criteria, when it has some.

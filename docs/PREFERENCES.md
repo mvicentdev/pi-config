@@ -9,9 +9,10 @@ A setting applies every time. A written rule applies only when an agent reads it
 
 - Impose a behaviour with a setting, a hook or an extension when one can. Write a rule only for what
   no configuration can impose.
-- Each document holds one responsibility, within 100 lines. A project's `AGENTS.md` holds 60, or the
+- Each document holds one responsibility, within 100 lines. A project's entry file holds 60, or the
   ceiling the project sets.
-- Each document is one step away from `AGENTS.md`, and needs no other document to be followed.
+- The entry file is always in context. It points to each document, and no document points back to it.
+- Each document is one step away from the entry file, and needs no other document to be followed.
 - Each section opens with the human reason for its rules.
 - A line enters a document only after an agent failed without it.
 
@@ -27,7 +28,8 @@ The user reads these documents to supervise the agents.
 
 The user opens each page in a browser of his own, outside any host application.
 
-- One file holds the page, with its styles and scripts inside, and no host application is needed.
+- Preview content in a plain HTML file. An artifact or a host application's visual is never the way.
+- One file holds the page, with its styles and scripts inside.
 - Geist Mono sets the interface, and IBM Plex Sans sets the text to read.
 - Colours are pastel and flat, with crisp borders, rounded corners and a dotted background.
 - Light and dark themes both work, and motion respects the reduced-motion setting.

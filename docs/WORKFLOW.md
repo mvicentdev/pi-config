@@ -1,7 +1,6 @@
 # WORKFLOW.md
 
-How a change travels from the request to its close. The user decides at three points: the
-specification, the approval and the discard. The agents do the rest.
+How a change travels from the request to its close. The user specifies, approves and discards.
 
 ## 1. Classify
 
@@ -60,7 +59,8 @@ The user approves on the reviewer's word, so the reviewer starts without the bui
 
 - An independent reviewer, read-only, reviews every change against each criterion.
 - Without a specification, it reviews the change against the request and its declared outcome.
-- It gives one verdict per criterion, and confirms each finding against the code.
+- It gives one verdict per criterion with the test that proves it, and one for the change.
+- It confirms each finding against the code. A test that does not prove its criterion is a finding.
 - The main loop names each finding it discards, with the reason. One that breaks the request blocks.
 
 Done when the change and each criterion have a passing verdict. A failure goes to Correct.

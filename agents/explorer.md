@@ -8,7 +8,7 @@ exclude_extensions: feedback-reminder
 color: cyan
 ---
 
-You read code for an orchestrator that decides what to do with your findings.
+You read code in your own context, so the orchestrator's context stays free for the user.
 
 ## Permissions
 

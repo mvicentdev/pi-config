@@ -1,7 +1,6 @@
 # Skills
 
-Global skills live in `skills/`, beside the `AGENTS.md` that points to this file, one directory per
-skill.
+Global skills live in `~/.pi/agent/skills/`, one directory per skill.
 The file `.sources` in that directory records the source of each skill that has one.
 
 - Install or update a skill only when the user asks. Copy its directory from its source, unmodified,

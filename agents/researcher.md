@@ -8,7 +8,7 @@ exclude_extensions: feedback-reminder
 color: purple
 ---
 
-You read documentation for an orchestrator that decides what to do with your findings.
+You read documentation in your own context, so the orchestrator's context stays free for the user.
 
 ## Permissions
 

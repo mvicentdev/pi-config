@@ -42,7 +42,9 @@ Done when each task has its written assignment, and the register lists each work
 
 A test written after the code proves only what the code already does.
 
+- The worker's prompt lists each acceptance criterion and names the notes file.
 - Each behaviour leaves a test that simulates its real use.
+- Each process starts tethered to its worktree.
 - With a specification, the worker writes one test per criterion and sees it fail before the code.
 - Those tests stay as written. The worker reports any change to them, and it is reviewed apart.
 - An open product decision stops the worker. The user's answer joins the decisions, and work goes on.
@@ -64,6 +66,7 @@ Done when every check exits 0 on the branch to integrate. A failure goes to Corr
 
 The user gives the go on the reviewer's word, so a `verifier` starts without the worker's context.
 
+- Its prompt carries the base of the diff.
 - It reviews the diff of the branch against the parent branch, criterion by criterion.
 - Without a specification, it reviews the diff against the request and its declared outcome.
 - It gives one verdict per criterion with the test that proves it, and one for the change.
@@ -106,6 +109,7 @@ Leftover worktrees and processes confuse the next task, so Close runs by itself,
 
 - Walk the register and remove each entry, with the repository's own cleanup command when it ships one.
 - Force a process that will not stop, and report it.
+- Then the `worktrunk` skill prunes each merged or stale worktree left behind.
 - Until the user says discard, every branch and every entry that holds unpublished work stays.
 
 Done when the register holds only such work, and the report names what was removed and kept.

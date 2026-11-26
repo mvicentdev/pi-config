@@ -31,10 +31,14 @@ import { runMentionClone } from "./mention-clone.js";
 import { describeModel, type ModelRegistry, resolveModel } from "./model-resolver.js";
 import { checkModelScope, isScopeModelsEnabled, setScopeModelsEnabled } from "./model-scope.js";
 import { getMaxSubagentDepth, setMaxSubagentDepth } from "./nested-tools.js";
+import {
+  resolveAgentRef as resolveAgentRefIn, resumableHandles, resumedResultText, resumeHint, resumeNotFoundMessage,
+  resumeTombstone, type TombstoneResumeDeps, type TombstoneSpawnOptions,
+} from "./resume-target.js";
 import { createOutputFilePath, ensureOutputFile, getOutputTranscriptDefault, setOutputTranscriptDefault, streamToOutputFile, writeInitialEntry } from "./output-file.js";
 import { applyAndEmitLoaded, loadSettings, type SubagentsSettings, saveAndEmitChanged, type ToolDescriptionMode } from "./settings.js";
 import { getForegroundOutcomeNote, getStatusNote, partialOutputSuffix } from "./status-note.js";
-import { type AgentConfig, type AgentInvocation, type AgentMentionMode, type AgentRecord, type JoinMode, type NotificationDetails, type SubagentType, type ViewerMarkdownMode, type WidgetMode } from "./types.js";
+import { type AgentConfig, type AgentInvocation, type AgentMentionMode, type AgentRecord, type AgentTombstone, type JoinMode, type NotificationDetails, type SubagentType, type ViewerMarkdownMode, type WidgetMode } from "./types.js";
 import { createMentionProvider, mentionRoster, type TypeInfo } from "./ui/agent-mention.js";
 import {
   type AgentActivity,
@@ -682,18 +686,35 @@ export default function (pi: ExtensionAPI) {
     return spawnResolved(piRef, ctxRef, type, prompt, safeOptions);
   };
 
+  /** A tool's `agent_id` or `resume` as an id OR a handle — see resume-target.ts. */
+  const resolveAgentRef = (ref: string): AgentRecord | undefined => resolveAgentRefIn(manager, ref);
+
+  /** What resumeTombstone needs from this extension, with the caller's way to start the run. */
+  const tombstoneResumeDeps = (start: TombstoneResumeDeps["start"]): TombstoneResumeDeps => ({
+    sessionExists: existsSync,
+    dropTombstone: handle => manager.dropTombstone(handle),
+    resolveType: type => {
+      reloadCustomAgents();
+      return resolveSpawnType(type);
+    },
+    start,
+  });
+
   /**
-   * Resolve a tool's `agent_id` as an id OR a handle, so the model addresses
-   * agents by the same names the user types. Ids are tried first, keeping the
-   * existing behaviour exact — a handle is only consulted when the string is
-   * not an id at all. Only live records: a tombstone has nothing to steer and
-   * no result to read. Callers still enforce the nested-ownership rejection.
+   * Start a tombstone resume detached and resolve once it runs. spawnResolved,
+   * not spawnTopLevel: the latter strips `resumeSessionFile` and `reclaim` as
+   * untrusted. This path is the exception — both come from a tombstone this
+   * extension wrote. The agent may still be starting, so wait: a startup
+   * failure then rejects instead of being announced as a resume.
    */
-  const resolveAgentRef = (ref: string): AgentRecord | undefined => {
-    const byId = manager.getRecord(ref);
-    if (byId) return byId;
-    const resolved = manager.resolveMention(ref);
-    return resolved?.kind === "live" ? resolved.record : undefined;
+  const startDetachedTombstoneResume = async (
+    piRef: any, ctxRef: any, type: string, prompt: string, options: TombstoneSpawnOptions,
+    onSpawned?: (id: string) => void,
+  ): Promise<string> => {
+    const id = spawnResolved(piRef, ctxRef, type, prompt, { ...options, isBackground: true });
+    onSpawned?.(id);
+    await manager.awaitStartup(id);
+    return id;
   };
 
   const registryEntry = {
@@ -878,69 +899,12 @@ export default function (pi: ExtensionAPI) {
       // `no_transcript`.
     }
 
-    // Evicted, but its conversation is still on disk: reopen it. This is an
-    // ordinary spawn carrying a session file, so the new record picks up the
-    // widget, fleet row, transcript and completion notification unchanged —
-    // and `reclaim` hands it back the names the tombstone was holding.
+    // Evicted, but its conversation is still on disk: reopen it (see
+    // resumeTombstone, shared with the Agent tool's `resume`).
     if (resolved?.kind === "tombstone") {
-      const entry = resolved.entry;
-      const target = `@${entry.alias ?? entry.handle}`;
-
-      // Checked here rather than left to SessionManager.open: that runs inside
-      // runAgent, whose rejection lands on the record as an agent error, not in
-      // the catch below. A `/new` in another pi window or a manual delete makes
-      // the conversation unrecoverable (Claude Code's `not_reachable`), so drop
-      // the entry — a row that can only ever fail is worse than none — and say
-      // so rather than quietly sending this message to an unrelated agent.
-      if (!existsSync(entry.sessionFile)) {
-        manager.dropTombstone(entry.handle);
-        ctx.ui.notify(`Could not resume ${target} — its session is gone.`, "warning");
-        return { action: "handled" };
-      }
-
-      // The Agent tool deliberately falls back to general-purpose for a type it
-      // cannot resolve (#183), which covers a deleted file AND a merely
-      // disabled one. A resume must not inherit that: reopening this
-      // conversation under a different agent's prompt and tools is not
-      // continuing it, and the new record would re-tombstone under the
-      // substitute, so the handle would never find its way back.
-      reloadCustomAgents();
-      const dispatch = resolveSpawnType(entry.type);
-      if (!dispatch.ok || dispatch.fellBackFrom !== undefined) {
-        // The tombstone stays: re-enabling the agent makes the handle work
-        // again, which a drop would foreclose.
-        ctx.ui.notify(`Could not resume ${target} — the ${entry.type} agent is no longer available.`, "warning");
-        return { action: "handled" };
-      }
-
-      try {
-        // spawnResolved, not spawnTopLevel: the latter strips
-        // `resumeSessionFile` and `reclaim` as untrusted. This path is the
-        // exception — both come from a tombstone this extension wrote.
-        const id = spawnResolved(pi, ctx, dispatch.type, mention.message, {
-          description: entry.description,
-          reclaim: { handle: entry.handle, alias: entry.alias },
-          resumeSessionFile: entry.sessionFile,
-          isBackground: true,
-        });
-        // The agent may still be starting — wait, so a startup failure lands in
-        // the catch below instead of being announced as a resume.
-        await manager.awaitStartup(id);
-        // The tombstone deliberately stays. `resolveMention` prefers the live
-        // record holding these same names, so it cannot shadow the resume — and
-        // if this run dies before establishing its own session, the original
-        // transcript is still the right thing for the next mention to reopen.
-        // Once the resumed record is evicted it overwrites this entry in place,
-        // keyed by the same handle, so nothing accumulates.
-        ctx.ui.notify(`Resuming ${target}`, "info");
-      } catch (err) {
-        // The type is already settled above, so what is left is a spawn-time
-        // failure: a strict worktree-isolation error, an unusable cwd.
-        ctx.ui.notify(
-          `Could not resume ${target}: ${err instanceof Error ? err.message : String(err)}`,
-          "warning",
-        );
-      }
+      const outcome = await resumeTombstone(resolved.entry, tombstoneResumeDeps((type, options) =>
+        startDetachedTombstoneResume(pi, ctx, type, mention.message, options)));
+      ctx.ui.notify(outcome.ok ? `Resuming ${outcome.target}` : outcome.message, outcome.ok ? "info" : "warning");
       return { action: "handled" };
     }
 
@@ -1354,7 +1318,7 @@ Notes:
 - Parallel work: one message, multiple Agent calls — they run concurrently.
 - Subagents run in the background by default; you'll be notified when one completes. Pass run_in_background: false only when your very next action depends on the result and nothing else could usefully happen while it runs. Never fabricate or predict a pending agent's results — if the user asks before the notification arrives, say it's still running.
 - The result is not shown to the user — summarize it for them. Verify an agent's claimed code changes before reporting work done.
-- resume continues a previous agent by ID; steer_subagent messages a running one.${isolationCompactGuideline}`;
+- resume continues a previous agent by ID or handle; steer_subagent messages a running one.${isolationCompactGuideline}`;
 
   const fullAgentToolDescription = `Launch a new agent to handle complex, multi-step tasks autonomously. Each agent type has specific capabilities and tools available to it.
 
@@ -1378,7 +1342,7 @@ If the target is already known, use a direct tool — \`read\` for a known path,
 - Agents run in the background by default. When an agent runs in the background, you will be automatically notified when it completes — do NOT sleep, poll, or proactively check on its progress. Continue with other work or respond to the user instead.
 - **Foreground vs background**: Pass \`run_in_background: false\` only when your very next action depends on the agent's result and nothing else could usefully happen while it runs — e.g., a research agent whose finding gates the edit you're about to make. Otherwise let it run in the background (the default) — this includes fire-and-forget work, independent investigations, and anything where the user might hand you something else in the meantime. Wanting the result "next" is not enough on its own.
 - **Don't race**: after launching a background agent, you know nothing about its results. Never fabricate or predict them in any format — not as prose, summary, or structured output. The completion notification arrives in a later turn; it is never something you write yourself. If the user asks before it lands, say the agent is still running — give status, not a guess.
-- Use resume with an agent ID to continue a previous agent's work. A new (non-resume) Agent call starts a fresh agent with no memory of prior runs, so the prompt must be self-contained.
+- Use resume with an agent ID or handle to continue a previous agent's work. A new (non-resume) Agent call starts a fresh agent with no memory of prior runs, so the prompt must be self-contained.
 - Use steer_subagent to send mid-run messages to a running background agent.
 - Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, etc.), since it is not aware of the user's intent.
 - If an agent's description says it should be used proactively, try to use it without the user having to ask for it first.
@@ -1500,7 +1464,7 @@ Terse command-style prompts produce shallow, generic work.
       ),
       resume: Type.Optional(
         Type.String({
-          description: "Optional agent ID to resume from. Continues from previous context. Resumes detached like any other spawn; pass run_in_background: false to block and get the result inline. An agent can only be resumed once its current run has finished — use steer_subagent to reach one mid-run.",
+          description: "Optional agent ID to resume from. The agent's handle also works — its `name` if you gave it one, otherwise its type (`explore`, `explore-2`). Continues from previous context, also once the agent has been cleaned up while its saved session remains. Resumes detached like any other spawn; pass run_in_background: false to block and get the result inline. An agent can only be resumed once its current run has finished — use steer_subagent to reach one mid-run.",
         }),
       ),
       isolated: Type.Optional(
@@ -1792,9 +1756,17 @@ Terse command-style prompts produce shallow, generic work.
 
       // Resume existing agent
       if (params.resume) {
-        const existing = manager.getRecord(params.resume);
+        const existing = resolveAgentRef(params.resume);
+        if (!existing) {
+          // Evicted after it finished: reopen its conversation from disk, the
+          // way an `@handle` mention does.
+          const resolved = manager.resolveMention(params.resume);
+          if (resolved?.kind === "tombstone") {
+            return resumeEvicted(resolved.entry);
+          }
+        }
         if (!existing || !isTopLevelAgent(existing)) {
-          return textResult(`Agent not found: "${params.resume}". It may have been cleaned up.`);
+          return textResult(resumeNotFoundMessage(params.resume, resumableHandles(manager)));
         }
         if (!existing.session) {
           return textResult(`Agent "${params.resume}" has no active session to resume.`);
@@ -1840,19 +1812,72 @@ Terse command-style prompts produce shallow, generic work.
           );
         }
 
-        const record = await manager.resume(params.resume, params.prompt, signal);
+        // By id: `params.resume` may be a handle, which the manager does not know.
+        const record = await manager.resume(existing.id, params.prompt, signal);
         if (!record) {
           return textResult(`Failed to resume agent "${params.resume}".`);
         }
-        // A failed resume surfaces the error, plus any partial output THIS
-        // resume produced (never the previous turn's answer, #144).
-        if (record.status === "error") {
-          return textResult(`Agent failed: ${record.error}${partialOutputSuffix(record)}`, buildDetails(detailBaseFor(record), record));
+        return textResult(resumedResultText(record), buildDetails(detailBaseFor(record), record));
+      }
+
+      /**
+       * Resume an evicted agent from its tombstone. Background returns once
+       * it runs, like a background resume. Foreground waits for the run and
+       * returns its result, like a foreground resume.
+       */
+      async function resumeEvicted(entry: AgentTombstone) {
+        if (runInBackground) {
+          const outcome = await resumeTombstone(entry, tombstoneResumeDeps((type, options) =>
+            startDetachedTombstoneResume(pi, ctx, type, params.prompt, options, (id) => {
+              // Wired before the run can finish, as a background spawn does,
+              // so the completion notification points at this tool call.
+              const rec = manager.getRecord(id);
+              const joinMode = resolveJoinMode(defaultJoinMode, true);
+              if (!rec) return;
+              rec.toolCallId = toolCallId;
+              if (joinMode) rec.joinMode = joinMode;
+              if (joinMode != null && joinMode !== "async") {
+                currentBatchAgents.push({ id, joinMode });
+                if (batchFinalizeTimer) clearTimeout(batchFinalizeTimer);
+                batchFinalizeTimer = setTimeout(finalizeBatch, 100);
+              }
+            })));
+          if (!outcome.ok) return textResult(outcome.message);
+          const record = manager.getRecord(outcome.id);
+          const isQueued = record?.status === "queued";
+          return textResult(
+            `Agent ${isQueued ? "queued" : "resumed"} in background from its saved session.\n` +
+            `Agent ID: ${outcome.id}\n` +
+            `Type: ${entry.type}\n` +
+            (isQueued ? `Position: queued (max ${manager.getMaxConcurrent()} concurrent)\n` : "") +
+            `\nYou will be notified when this agent completes.\n` +
+            `Use get_subagent_result to retrieve full results, or steer_subagent to send it messages.`,
+            { ...detailBaseFor(record), toolUses: 0, tokens: "", durationMs: 0, status: "background" as const, agentId: outcome.id },
+          );
         }
-        return textResult(
-          record.result?.trim() || "No output.",
-          buildDetails(detailBaseFor(record), record),
-        );
+
+        // Foreground: spawnAndWait charges the foreground pool and returns
+        // once the run has settled. The tracker is spawnResolved's, wired by hand.
+        let fgResumeId: string | undefined;
+        const outcome = await resumeTombstone(entry, tombstoneResumeDeps(async (type, options) => {
+          const { state, callbacks } = createActivityTracker(resolveEffectiveMaxTurns(type, undefined));
+          try {
+            const { id } = await manager.spawnAndWait(pi, ctx, type, params.prompt, {
+              ...options, signal, ...callbacks,
+            }, (id) => { fgResumeId = id; agentActivity.set(id, state); });
+            return id;
+          } finally {
+            if (fgResumeId) {
+              agentActivity.delete(fgResumeId);
+              widget.markFinished(fgResumeId);
+              fleet.onAgentFinished(fgResumeId);
+            }
+          }
+        }));
+        if (!outcome.ok) return textResult(outcome.message);
+        const settled = manager.getRecord(outcome.id);
+        if (!settled) return textResult(`Failed to resume agent "${params.resume}".`);
+        return textResult(resumedResultText(settled), buildDetails(detailBaseFor(settled), settled));
       }
 
       // Background execution
@@ -2105,7 +2130,7 @@ Terse command-style prompts produce shallow, generic work.
         if (costText) statsParts.push(costText);
       }
       return textResult(
-        `${fallbackNote}Agent completed in ${formatMs(durationMs)} (${statsParts.join(", ")})${getForegroundOutcomeNote(record.status)}.\n\n` +
+        `${fallbackNote}Agent completed in ${formatMs(durationMs)} (${statsParts.join(", ")})${getForegroundOutcomeNote(record.status)}. ${resumeHint(record)}\n\n` +
         (record.result?.trim() || "No output."),
         details,
       );
@@ -2219,7 +2244,7 @@ Terse command-style prompts produce shallow, generic work.
       // Mark result as consumed — suppresses the completion notification
       if (record.status !== "running" && record.status !== "queued") {
         record.resultConsumed = true;
-        cancelNudge(params.agent_id);
+        cancelNudge(record.id);
       }
 
       // Verbose: include full conversation
@@ -3041,7 +3066,7 @@ Write the file using the write tool. Only write the file, nothing else.`;
         {
           id: "rememberAgents",
           label: "Remember agents",
-          description: "Persist subagent sessions so `@handle` can resume one long after it finished (they also appear in /resume)",
+          description: "Persist subagent sessions so `@handle` or the Agent tool's resume can continue one long after it finished (they also appear in /resume)",
           currentValue: getRememberAgents() ? "on" : "off",
           values: ["on", "off"],
         },

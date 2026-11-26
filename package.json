@@ -3,7 +3,7 @@
   "private": true,
   "description": "Configuración común de pi para todos sus usuarios",
   "scripts": {
-    "test": "node --test extensions/{advisor,autocorrect,bash-guard,max-width,shared}/*.test.ts extensions/main-loop-guard/guard.test.ts extensions/review-guard/review.test.ts extensions/subagent-models/table.test.ts extensions/subagents-panel/roster.test.ts extensions/*/*.test.mjs extensions/*/run-test.mjs docs/*.test.mjs"
+    "test": "node --test extensions/{advisor,autocorrect,bash-guard,max-width,shared}/*.test.ts extensions/main-loop-guard/guard.test.ts extensions/review-guard/review.test.ts extensions/subagent-models/table.test.ts extensions/subagents-panel/roster.test.ts extensions/*/*.test.mjs extensions/*/run-test.mjs docs/*.test.mjs vendor/pi-subagents/test/run-test.mjs"
   },
   "dependencies": {
     "@amaster.ai/pi-attachments": "^0.1.18",

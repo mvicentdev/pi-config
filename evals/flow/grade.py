@@ -32,9 +32,9 @@ RUBRIC = os.path.join(HERE, "rubric.json")
 DEFAULT_SESSIONS = os.path.expanduser("~/.pi/agent/sessions")
 RULE_DOCS = ("AGENTS.md", "docs/WORKFLOW.md", "docs/ORCHESTRATION.md")
 TAGS = ("hook", "script", "judge", "unmeasured")
-# The rules this script answers, with how it answers each.
-SCRIPT_RULES = {"A14": "heuristic", "A15": "heuristic", "W1": "heuristic", "W14": "heuristic", "W27": "exact",
-                "W28": "heuristic", "O5": "heuristic", "O7": "exact", "O9": "heuristic"}
+# The rules this script answers, with how it answers each. Exact reads a field. Heuristic matches patterns.
+SCRIPT_RULES = {"A14": "heuristic", "A15": "heuristic", "W1": "heuristic", "W14": "heuristic", "W27": "heuristic",
+                "W28": "heuristic", "O7": "exact", "O9": "heuristic", "O19": "heuristic"}
 MIN_SESSIONS = 20      # below this, a rules version names no retirement candidate
 RELATION = 0.3         # |Pearson r| from which a rule's answers count as related to an outcome measure
 QUOTE_WORDS = 20
@@ -348,7 +348,7 @@ def script_answers(ev):
     first_worker_report = next((x for x in ev if x["kind"] == "report" and x.get("type") == "worker"), None)
     out = {}
 
-    # O5: the longest run of lookups, reset by any other call or a user message.
+    # O19: the longest run of lookups, reset by any other call or a user message.
     streak, worst, worst_start, start = 0, 0, None, None
     for x in ev:
         if x["kind"] == "user" and not x["automated"]:
@@ -362,7 +362,7 @@ def script_answers(ev):
                     worst, worst_start = streak, start
             else:
                 streak = 0
-    out["O5"] = ans("no" if worst > 5 else "yes", [worst_start] if worst > 5 else [], f"longest run: {worst}")
+    out["O19"] = ans("no" if worst > 5 else "yes", [worst_start] if worst > 5 else [], f"longest run: {worst}")
 
     # O7: no model and no thinking argument on any launch.
     if not agents:
@@ -434,7 +434,8 @@ def script_answers(ev):
                        and CRITERIA.search(x["args"].get("prompt", "") or ""))]
         out["W14"] = ans("no" if bad else "yes", bad)
 
-    # W27 and W28: a fresh verifier reviewed the change after a worker report, with the base of the diff.
+    # W27: a verifier after a worker report is asked to review the diff against its base, criterion by criterion.
+    # W28: each such review prompt carries the base of the diff.
     reviews = []
     if first_worker_report is not None:
         reviews = [x for x in agents if x["type"] == "verifier" and pos[id(x)] > pos[id(first_worker_report)]
@@ -442,13 +443,16 @@ def script_answers(ev):
     if not workers:
         out["W27"] = ans("n.a.")
     else:
-        inherit = [x["id"] for x in agents if x["type"] == "verifier" and x["args"].get("inherit_context")]
-        if inherit:
-            out["W27"] = ans("no", inherit, "verifier launched with inherit_context")
-        elif reviews:
+        def per_criterion(x):
+            p = x["args"].get("prompt", "") or ""
+            return bool(DIFF_BASE.search(p) and CRITERIA.search(p))
+        if not reviews:
+            out["W27"] = ans("no", [w["id"] for w in workers], "no verifier reviewed a change after a worker report")
+        elif all(per_criterion(x) for x in reviews):
             out["W27"] = ans("yes", [r["id"] for r in reviews])
         else:
-            out["W27"] = ans("no", [w["id"] for w in workers], "no verifier reviewed a change after a worker report")
+            out["W27"] = ans("no", [x["id"] for x in reviews if not per_criterion(x)],
+                             "the review prompt lacks the base of the diff or the criteria")
     if not reviews:
         out["W28"] = ans("n.a.")
     else:

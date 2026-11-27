@@ -105,11 +105,25 @@ class Rubric(unittest.TestCase):
         r = rubric()
         for i in ("W31", "W32", "W21"):
             self.assertEqual(r[i]["tag"], "judge", i)
-        for i in ("O6", "O14", "W34", "O1", "W37"):
-            self.assertEqual(r[i]["tag"], "hook", i)
-        for i in ("O7", "W27"):
+        # A rule is a hook only when main-loop-guard or review-guard imposes its whole line.
+        self.assertEqual({e["id"] for e in grade.load_rubric() if e["tag"] == "hook"}, {"O6", "O14", "W50"})
+        for i in ("W34", "W37", "O1", "O5"):
+            self.assertEqual(r[i]["tag"], "judge", i)
+        for i in ("O7", "W27", "O19"):
             self.assertEqual(r[i]["tag"], "script", i)
         self.assertEqual({e["id"] for e in grade.load_rubric() if e["tag"] == "script"}, set(grade.SCRIPT_RULES))
+
+    def test_each_script_method_is_labelled_truthfully(self):
+        # Only O7 reads a field. Every other script answer rests on patterns, so it is heuristic.
+        self.assertEqual({i for i, m in grade.SCRIPT_RULES.items() if m == "exact"}, {"O7"})
+        self.assertEqual(set(grade.SCRIPT_RULES.values()), {"exact", "heuristic"})
+
+    def test_script_questions_measure_their_own_rule_line(self):
+        r = rubric()
+        self.assertIn("criterion by criterion", r["W27"]["question"])
+        self.assertIn("parent branch", r["W27"]["question"])
+        self.assertIn("five", r["O19"]["question"])
+        self.assertIn("three calls", r["O5"]["question"])
 
 
 # ---------------------------------------------------------------- 3. Script questions and measures
@@ -134,7 +148,10 @@ class Measures(unittest.TestCase):
         ans = self.a["answers"]
         self.assertEqual(ans["O7"]["answer"], "no")
         self.assertEqual(ans["O7"]["entries"], ["a0000003"])
-        self.assertEqual(ans["W27"]["answer"], "yes")
+        # The verifier prompt names the base but never asks for a verdict per criterion.
+        self.assertEqual(ans["W27"]["answer"], "no")
+        self.assertEqual(ans["W27"]["entries"], ["a0000004"])
+        self.assertEqual(ans["O19"]["answer"], "yes")
         self.assertEqual(ans["W28"]["answer"], "yes")
         self.assertEqual(ans["W1"]["answer"], "yes")
         self.assertEqual(ans["W14"]["answer"], "yes")

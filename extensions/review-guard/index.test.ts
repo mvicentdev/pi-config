@@ -6,11 +6,20 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { extensionCanonicalNames } from "../../vendor/pi-subagents/src/agent-runner.ts";
 import { createReviewGuard } from "./index.ts";
-import { PUBLISH_REASON } from "./review.ts";
+import { GO_REASON, PUBLISH_REASON } from "./review.ts";
 
 const DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(DIRECTORY, "..", "..");
 const REFUSED = { block: true, reason: PUBLISH_REASON };
+const NO_GO = { block: true, reason: GO_REASON };
+
+// El git de mentira dice que /tmp está en main, su rama por defecto, y /tmp/feature en feat/x.
+const GIT = (dir: string, args: readonly string[]) => {
+	const branch = ({ "/tmp": "main", "/tmp/feature": "feat/x", "/tmp/all": "feat/all" } as Record<string, string>)[dir];
+	if (args.join(" ") === "symbolic-ref --short -q HEAD") return branch;
+	if (args.join(" ") === "symbolic-ref --short -q refs/remotes/origin/HEAD") return branch && "origin/main";
+	return args[0] === "remote" && branch ? "origin" : undefined;
+};
 
 // Un pi de mentira que guarda lo que la extensión registra, con un reloj que avanza en cada lectura.
 // Sin registro, la extensión se fía solo de los eventos de pi-subagents.
@@ -19,7 +28,7 @@ function session(entries: unknown[] = [], registry?: () => unknown) {
 	const listeners = new Map<string, (data: unknown) => void>();
 	const emit = (name: string, data: unknown) => listeners.get(name)?.(data);
 	let clock = 1000;
-	createReviewGuard(() => ++clock, registry ?? (() => undefined))({
+	createReviewGuard(() => ++clock, registry ?? (() => undefined), GIT)({
 		on: (name: string, handler: never) => handlers.set(name, handler),
 		events: { on: (name: string, listener: never) => listeners.set(name, listener) },
 	} as never);
@@ -47,6 +56,8 @@ function session(entries: unknown[] = [], registry?: () => unknown) {
 			};
 		},
 		push: (command = "git push") => handlers.get("tool_call")?.({ toolName: "bash", toolCallId: `push-${++id}`, input: { command } }, ctx),
+		// Un mensaje del usuario entra en la conversación.
+		say: (text = "Sip") => handlers.get("message_end")?.({ message: { role: "user", content: [{ type: "text", text }], timestamp: 0 } }, ctx),
 		edit: (path = "README.md") => run("edit", { path, oldText: "a", newText: "b" }),
 		run,
 		agent: (type: string, report: string | undefined, status = "completed") =>
@@ -82,6 +93,7 @@ test("un verifier que pasa después del cambio deja publicar", () => {
 	const s = session();
 	s.edit();
 	s.agent("verifier", "Verdict: pass\n\nSin hallazgos.");
+	s.say();
 	assert.equal(s.push(), undefined);
 	assert.equal(s.push("git -C /tmp/repo push"), undefined);
 });
@@ -93,6 +105,7 @@ test("un arreglo de un worker después de la revisión vuelve a impedir publicar
 	s.agent("worker", "Fixed the finding.");
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	s.foreground({ subagent_type: "worker", prompt: "fix" }, "worker", "Agent completed in 1s.\n\nDone.");
 	assert.deepEqual(s.push(), REFUSED);
@@ -103,6 +116,7 @@ test("un worker reanudado cuenta como cambio aunque subagent_type diga otra cosa
 	s.foreground({ subagent_type: "verifier", resume: "w1", prompt: "fix" }, "worker", "Done.");
 	assert.deepEqual(s.push(), REFUSED);
 	s.foreground({ subagent_type: "verifier", resume: "v1", prompt: "again" }, "verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 });
 
@@ -161,12 +175,14 @@ test("un worker en segundo plano aún en marcha impide publicar hasta que acaba"
 	// Acabó y cambió el trabajo: un verifier nuevo lo cubre.
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	// Un worker que pi-subagents arranca desde la cola o por RPC solo avisa con subagents:started.
 	s.emit("subagents:started", { id: "w2", type: "worker", description: "queued" });
 	assert.deepEqual(s.push(), REFUSED);
 	s.emit("subagents:failed", { id: "w2", type: "worker", status: "stopped", durationMs: 0 });
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	// Un verifier en segundo plano no impide publicar.
 	s.emit("subagents:created", { id: "v9", type: "verifier", description: "review", isBackground: true });
@@ -187,11 +203,13 @@ test("un worker que pi-subagents ya no tiene en marcha deja de impedir publicar 
 	records.set("w1", { status: "stopped" });
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	// Un registro que pi-subagents ya ha borrado tampoco corre.
 	s.emit("subagents:started", { id: "w2", type: "worker", description: "gone" });
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	// Un registro sin getRecord no sirve: cuentan los eventos.
 	const t = session([], () => ({}));
@@ -208,6 +226,7 @@ test("un worker parado sin aviso aún cuenta como cambio", () => {
 	records.set("w1", { status: "stopped" });
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 });
 
@@ -217,6 +236,7 @@ test("un worker reanudado en primer plano impide publicar mientras corre", () =>
 	s.emit("subagents:completed", { id: "w1", type: "worker", status: "completed", result: "done", durationMs: 0 });
 	s.emit("subagents:created", { id: "v1", type: "verifier", description: "review", isBackground: true });
 	s.emit("subagents:completed", { id: "v1", type: "verifier", status: "completed", result: "Verdict: pass", durationMs: 0 });
+	s.say();
 	assert.equal(s.push(), undefined);
 	// Reanudar ignora subagent_type: cuenta el tipo del agente reanudado.
 	const end = s.start("Agent", { subagent_type: "verifier", resume: "w1", prompt: "fix", run_in_background: false });
@@ -224,6 +244,7 @@ test("un worker reanudado en primer plano impide publicar mientras corre", () =>
 	end({ content: [{ type: "text", text: "Done." }], details: { subagentType: "worker", status: "completed", durationMs: 0, agentId: "w1" } });
 	assert.deepEqual(s.push(), REFUSED);
 	s.agent("verifier", "Verdict: pass");
+	s.say();
 	assert.equal(s.push(), undefined);
 	const review = s.start("Agent", { subagent_type: "worker", resume: "v1", prompt: "again", run_in_background: false });
 	assert.equal(s.push(), undefined);
@@ -240,7 +261,7 @@ test("un worker reanudado en primer plano impide publicar mientras corre", () =>
 });
 
 test("tras recargar, reconoce el tipo de un agente que se reanuda", () => {
-	const s = session([subagent("worker", "done", 1, 2), subagent("verifier", "Verdict: pass", 3, 4)]);
+	const s = session([subagent("worker", "done", 1, 2), subagent("verifier", "Verdict: pass", 3, 4), user("Sip", 5)]);
 	assert.equal(s.push(), undefined);
 	const end = s.start("Agent", { subagent_type: "verifier", resume: "worker", prompt: "fix", run_in_background: false });
 	assert.deepEqual(s.push(), REFUSED);
@@ -279,12 +300,17 @@ const subagent = (type: string, report: string, startedAt: number, completedAt: 
 	customType: "subagents:record",
 	data: { id: type, type, status: "completed", result: report, startedAt, completedAt },
 });
+const user = (text: string, timestamp: number) => ({
+	type: "message",
+	message: { role: "user", content: [{ type: "text", text }], timestamp },
+});
 
 test("al empezar o recargar la sesión rehace el estado desde sus entradas", () => {
 	const edited = [toolCall("c1", "edit", { path: "a.md" }), toolResult("c1", "edit")];
 	assert.deepEqual(session(edited).push(), REFUSED);
 	const reviewed = [...edited, subagent("verifier", "Verdict: pass", 3, 4)];
-	assert.equal(session(reviewed).push(), undefined);
+	assert.deepEqual(session(reviewed).push(), NO_GO);
+	assert.equal(session([...reviewed, user("Sip", 5)]).push(), undefined);
 	assert.deepEqual(session([...reviewed, subagent("worker", "done", 5, 6)]).push(), REFUSED);
 	// Un cambio de rama con /tree también rehace el estado.
 	const entries: unknown[] = [];
@@ -293,6 +319,58 @@ test("al empezar o recargar la sesión rehace el estado desde sus entradas", () 
 	assert.deepEqual(s.push(), REFUSED);
 	s.handlers.get("session_tree")?.({}, s.ctx);
 	assert.equal(s.push(), undefined);
+});
+
+// Criterio 3: publicar pide un mensaje del usuario posterior al último cambio, que un verifier aprobó.
+// Fallo medido: el agente publica tras el verifier sin ningún mensaje del usuario en medio.
+test("publicar tras el verifier sin un mensaje del usuario se rechaza", () => {
+	const s = session();
+	s.say("Arregla el fallo.");
+	s.agent("worker", "Fixed.");
+	s.agent("verifier", "Verdict: pass");
+	for (const command of ["git push -u origin HEAD", "glab mr create --fill", "gh pr create --fill", "git merge --ff-only feat/x", "glab mr merge 12 --yes"]) {
+		assert.deepEqual(s.push(command), NO_GO, command);
+	}
+	s.say("Sip");
+	assert.equal(s.push(), undefined);
+	assert.equal(s.push("git merge --ff-only feat/x"), undefined);
+	// Un cambio después del visto bueno pide otro.
+	s.edit();
+	s.agent("verifier", "Verdict: pass");
+	assert.deepEqual(s.push(), NO_GO);
+});
+
+// Falsa alarma (a), medida: el usuario da el visto bueno, la extensión pide otra revisión y esta pasa sin cambiar código.
+test("el visto bueno anterior a una revisión que pasa sin cambios deja publicar", () => {
+	const s = session();
+	s.say("Los recomendados");
+	s.agent("verifier", "Verdict: pass");
+	s.agent("worker", "Fixed the finding.");
+	s.say("Ok. Subimos");
+	assert.deepEqual(s.push(), REFUSED);
+	s.agent("verifier", "Verdict: pass");
+	assert.equal(s.push(), undefined);
+	assert.equal(s.push("glab mr create --fill"), undefined);
+});
+
+// Falsa alarma (b), medida: una fusión local con avance rápido que el usuario pidió con palabras.
+test("una fusión local que pide el usuario pasa", () => {
+	const s = session();
+	s.agent("worker", "Done.");
+	s.agent("verifier", "Verdict: pass");
+	s.say("Sip, fusiona en main.");
+	assert.equal(s.push("cd /tmp && git status --short && git merge --ff-only feat/x 2>&1 | tail -2"), undefined);
+});
+
+// Falsa alarma (c), medida: un commit local. Tampoco una fusión en una rama que no es la de por defecto.
+test("un commit local y una fusión fuera de la rama por defecto pasan sin visto bueno", () => {
+	const s = session();
+	s.say("Arregla el fallo.");
+	s.agent("worker", "Done.");
+	assert.equal(s.push("git add -A && git commit -q -m 'fix: x'"), undefined);
+	assert.equal(s.push("cd /tmp/feature && git commit -am 'fix: y'"), undefined);
+	assert.equal(s.push("git -C /tmp/all merge -q --no-edit feat/a feat/b"), undefined);
+	assert.equal(s.push("git merge --ff-only origin/main"), undefined);
 });
 
 // pi-subagents carga en un subagente las extensiones del bucle principal salvo las de exclude_extensions.

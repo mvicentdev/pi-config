@@ -92,8 +92,10 @@ Done when the failed step passes, or the user has chosen.
 
 ## 7. Integrate
 
-The user answers for what is published, so nothing is published without the user's go.
+The user answers for what is published.
 
+- The `review-guard` extension refuses a push, a merge request or a merge into the default branch
+  until a user message follows the last change.
 - Ask for the go in the form the `feedback-reminder` extension sets. The destination is the parent
   branch, unless the user names another.
 - Ask only once each criterion has its evidence or is a manual check.

@@ -3,15 +3,31 @@
 // Cambian el trabajo edit, write, lsp_fix con write: true y un worker que acaba. Lo revisa un verifier cuyo informe dice pass.
 // Mientras quede un cambio sin revisar o un worker en marcha, rechaza en bash git push, glab mr create y gh pr create.
 // Cada agente de agents/ la excluye con exclude_extensions, así que solo actúa en el bucle principal.
+
+// Tampoco bastaba escribir que se publica solo con el visto bueno del usuario.
+// Tras el último cambio debe llegar un mensaje del usuario, y la fusión en la rama por defecto también publica.
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { agentFromToolResult, agentTypes, applyAgent, changesFiles, PUBLISH_REASON, publishes, rebuild, ReviewState } from "./review.ts";
+import {
+	agentFromToolResult,
+	agentTypes,
+	applyAgent,
+	changesFiles,
+	type GitLookup,
+	GO_REASON,
+	mergesIntoDefault,
+	PUBLISH_REASON,
+	publishes,
+	rebuild,
+	ReviewState,
+	runGit,
+} from "./review.ts";
 
 // pi-subagents publica su gestor en este registro global. getRecord da el estado vivo de un agente del bucle principal.
 const SUBAGENTS = Symbol.for("pi-subagents:manager");
 type Subagents = { getRecord?: (id: string) => { status?: unknown } | undefined };
 const subagentsRegistry = () => (globalThis as Record<symbol, unknown>)[SUBAGENTS];
 
-export function createReviewGuard(now: () => number = Date.now, registry: () => unknown = subagentsRegistry) {
+export function createReviewGuard(now: () => number = Date.now, registry: () => unknown = subagentsRegistry, git: GitLookup = runGit) {
 	return function reviewGuard(pi: ExtensionAPI) {
 		let state = new ReviewState();
 		// Una llamada que cambia ficheros y aún corre, en paralelo con el push.
@@ -47,15 +63,23 @@ export function createReviewGuard(now: () => number = Date.now, registry: () => 
 		pi.on("session_start", reconstruct);
 		pi.on("session_tree", reconstruct);
 
-		pi.on("tool_call", (event) => {
+		// Solo cuenta un mensaje del usuario. pi-subagents avisa con mensajes custom.
+		pi.on("message_end", (event) => {
+			if (event.message.role === "user") state.speak(now());
+		});
+
+		pi.on("tool_call", (event, ctx) => {
 			const input = (event.input ?? {}) as Record<string, unknown>;
 			// Un agente reanudado de tipo desconocido puede ser un worker.
 			const resumed = typeof input.resume === "string" && input.resume ? (types.get(input.resume) ?? "worker") : undefined;
 			const worker = event.toolName === "Agent" && isWorker(resumed ?? input.subagent_type);
 			if (changesFiles(event.toolName, input) || worker) running.add(event.toolCallId);
-			if (event.toolName !== "bash" || !publishes(String(input.command ?? ""))) return undefined;
+			if (event.toolName !== "bash") return undefined;
+			const command = String(input.command ?? "");
+			if (!publishes(command) && !mergesIntoDefault(command, ctx.cwd, git)) return undefined;
 			// workersRunning va primero: puede anotar un cambio que state.unreviewed debe ver.
-			return workersRunning() || running.size > 0 || state.unreviewed() ? { block: true, reason: PUBLISH_REASON } : undefined;
+			if (workersRunning() || running.size > 0 || state.unreviewed()) return { block: true, reason: PUBLISH_REASON };
+			return state.awaitingGo() ? { block: true, reason: GO_REASON } : undefined;
 		});
 
 		pi.on("tool_result", (event) => {

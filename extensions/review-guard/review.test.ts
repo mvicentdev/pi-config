@@ -1,7 +1,22 @@
 // node --test extensions/review-guard/review.test.ts
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { PUBLISH_REASON, publishes, rebuild, ReviewState, verdictPasses } from "./review.ts";
+import { GO_REASON, mergesIntoDefault, PUBLISH_REASON, publishes, rebuild, ReviewState, runGit, verdictPasses } from "./review.ts";
+
+// Un git de mentira: la rama de cada directorio, la rama por defecto del remoto y los remotos.
+type Repo = { branch?: string; defaultBranch?: string; remotes?: string[] };
+const fakeGit = (repos: Record<string, Repo>) => (dir: string, args: readonly string[]) => {
+	const repo = repos[dir];
+	if (!repo) return undefined;
+	if (args.join(" ") === "symbolic-ref --short -q HEAD") return repo.branch;
+	if (args.join(" ") === "symbolic-ref --short -q refs/remotes/origin/HEAD") return repo.defaultBranch && `origin/${repo.defaultBranch}`;
+	if (args.join(" ") === "remote") return (repo.remotes ?? ["origin"]).join("\n");
+	return undefined;
+};
 
 test("reconoce git push en cualquier forma", () => {
 	for (const command of [
@@ -193,6 +208,112 @@ test("el estado rehecho lee el resultado de un Agent en primer plano, también r
 		},
 	];
 	assert.equal(rebuild([...edited, ...verifier("c2", "Verdict: pass", 3), ...resumedWorker]).unreviewed(), true);
+});
+
+test("reconoce una fusión en la rama por defecto", () => {
+	const git = fakeGit({
+		"/repo": { branch: "main", defaultBranch: "main" },
+		"/feature": { branch: "feat/x", defaultBranch: "main" },
+		"/other": { branch: "develop", defaultBranch: "develop" },
+		"/old": { branch: "master" },
+	});
+	for (const [command, cwd] of [
+		["git merge --ff-only feat/x", "/repo"],
+		["git merge --no-ff -m 'Merge feat' feat/x", "/repo"],
+		["git status && git merge -q --ff-only feat/x 2>&1 | tail -1", "/repo"],
+		["git checkout main && git merge feat/x", "/feature"],
+		["git switch main; git merge --no-ff feat/x", "/feature"],
+		["cd /other && git merge feat/y", "/repo"],
+		["git -C /other merge --ff-only feat/y", "/feature"],
+		["cd ../repo && git merge feat/x", "/feature"],
+		["git merge feat/x", "/old"],
+		["bash -c 'git merge feat/x'", "/repo"],
+		["gh pr merge 3 --squash", "/feature"],
+		["glab mr merge 12 --yes", "/feature"],
+		["glab -R o/r mr merge 12 --auto-merge --yes", "/feature"],
+	]) {
+		assert.equal(mergesIntoDefault(command, cwd, git), true, `${command} en ${cwd}`);
+	}
+});
+
+test("no toma por fusión en la rama por defecto las demás formas", () => {
+	const git = fakeGit({
+		"/repo": { branch: "main", defaultBranch: "main", remotes: ["origin", "upstream"] },
+		"/feature": { branch: "feat/x", defaultBranch: "main" },
+		"/integration": { branch: "feat/all", defaultBranch: "develop" },
+		"/develop": { branch: "develop" },
+	});
+	for (const [command, cwd] of [
+		["git merge --ff-only origin/main", "/repo"],
+		["git merge -q --ff-only upstream/main", "/repo"],
+		["git merge @{u}", "/repo"],
+		["git merge", "/repo"],
+		["git merge --abort", "/repo"],
+		["git merge --continue", "/repo"],
+		["git merge-base HEAD feat/x", "/repo"],
+		["git merge-tree --write-tree main feat/x", "/repo"],
+		["git commit -m 'git merge feat/x'", "/repo"],
+		["echo git merge feat/x", "/repo"],
+		["git merge main", "/feature"],
+		["git merge -q --no-edit feat/a feat/b", "/integration"],
+		["git -C /feature merge main", "/repo"],
+		["git checkout feat/x && git merge main", "/repo"],
+		["git merge feat/x", "/develop"],
+		["git merge feat/x", "/nowhere"],
+		["gh pr view 3", "/repo"],
+		["glab mr merge --help", "/repo"],
+		["glab mr list", "/repo"],
+	]) {
+		assert.equal(mergesIntoDefault(command, cwd, git), false, `${command} en ${cwd}`);
+	}
+});
+
+test("lee la rama y los remotos de un repositorio de verdad", () => {
+	const root = realpathSync(mkdtempSync(join(tmpdir(), "review-guard-")));
+	try {
+		execFileSync("git", ["init", "-q", "-b", "main", root]);
+		assert.equal(runGit(root, ["symbolic-ref", "--short", "-q", "HEAD"]), "main");
+		assert.equal(mergesIntoDefault("git merge --ff-only feat/x", root), true);
+		execFileSync("git", ["-C", root, "switch", "-q", "-c", "feat/x"]);
+		assert.equal(mergesIntoDefault("git merge --ff-only main", root), false);
+		assert.equal(runGit(join(root, "missing"), ["remote"]), undefined);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("publicar espera un mensaje del usuario posterior al último cambio", () => {
+	const state = new ReviewState();
+	assert.equal(state.awaitingGo(), false);
+	state.speak(5);
+	state.change(10);
+	assert.equal(state.awaitingGo(), true);
+	state.pass(11);
+	assert.equal(state.awaitingGo(), true);
+	state.speak(10);
+	assert.equal(state.awaitingGo(), true);
+	state.speak(12);
+	assert.equal(state.awaitingGo(), false);
+	// Un visto bueno anterior a una revisión que pasa sin cambios sigue valiendo.
+	state.pass(13);
+	assert.equal(state.awaitingGo(), false);
+	state.change(14);
+	assert.equal(state.awaitingGo(), true);
+});
+
+test("el estado rehecho lee los mensajes del usuario", () => {
+	const user = (text: string, timestamp: number) => ({ type: "message", message: { role: "user", content: [{ type: "text", text }], timestamp } });
+	const edited = [call("c1", "edit", { path: "a.md" }, 1), result("c1", "edit", 2)];
+	const reviewed = [user("arregla", 0), ...edited, record("verifier", "completed", "Verdict: pass", 3, 4)];
+	assert.equal(rebuild(reviewed).awaitingGo(), true);
+	assert.equal(rebuild([...reviewed, user("Sip", 5)]).awaitingGo(), false);
+	assert.equal(rebuild([...edited, user("Ok. Subimos", 3), record("verifier", "completed", "Verdict: pass", 4, 5)]).awaitingGo(), false);
+});
+
+test("el aviso del visto bueno pide preguntar al usuario en dos frases en inglés", () => {
+	assert.match(GO_REASON, /^Blocked before publishing:/);
+	assert.match(GO_REASON, /user/);
+	assert.equal(GO_REASON.split(/(?<=\.)\s+/).length, 2);
 });
 
 test("el aviso pide un verifier nuevo en una o dos frases en inglés", () => {

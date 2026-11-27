@@ -1,5 +1,12 @@
+import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+
 export const PUBLISH_REASON =
 	"Blocked before publishing: the work changed after the last passing review. A fresh `verifier` subagent must pass the latest change before you push or open a merge request.";
+
+export const GO_REASON =
+	"Blocked before publishing: no message of the user came after the last change. Ask the user for the go, and publish only after the answer.";
 
 // Un worker que acaba, bien o mal, pudo dejar cambios. Un verifier solo aprueba si acabó bien.
 const FINISHED = new Set(["completed", "steered", "error", "stopped", "aborted"]);
@@ -16,6 +23,20 @@ export class ReviewState {
 
 	pass(startedAt: number): void {
 		this.reviewedFrom = Math.max(this.reviewedFrom ?? startedAt, startedAt);
+	}
+
+	// El último mensaje del usuario. Los avisos de pi-subagents y de las extensiones no son del usuario.
+	spokenAt: number | undefined;
+
+	speak(at: number): void {
+		this.spokenAt = Math.max(this.spokenAt ?? at, at);
+	}
+
+	// El visto bueno cuenta si llega después del último cambio, aunque llegue antes de la revisión que lo aprueba.
+	// Así vale el visto bueno tras el que la extensión pide otra revisión y esta pasa sin cambiar nada.
+	awaitingGo(): boolean {
+		if (this.changedAt === undefined) return false;
+		return this.spokenAt === undefined || this.spokenAt <= this.changedAt;
 	}
 
 	unreviewed(): boolean {
@@ -102,6 +123,7 @@ export function rebuild(entries: readonly unknown[]): ReviewState {
 			continue;
 		}
 		const message = entry.type === "message" ? entry.message : undefined;
+		if (message?.role === "user" && typeof message.timestamp === "number") state.speak(message.timestamp);
 		if (message?.role === "assistant" && Array.isArray(message.content)) {
 			for (const block of message.content) if (block?.type === "toolCall") inputs.set(block.id, block.arguments);
 		}
@@ -146,8 +168,12 @@ function subcommands(words: readonly string[], valueOptions: ReadonlySet<string>
 	return found;
 }
 
-function segmentPublishes(segment: string): boolean {
-	const words = segment.trim().split(/\s+/).filter(Boolean);
+// Las palabras de una orden sin los prefijos que lanzan otra. Quita también las redirecciones como 2>.
+function commandWords(segment: string): string[] {
+	const words = segment
+		.trim()
+		.split(/\s+/)
+		.filter((word) => word && !/[<>]/.test(word));
 	for (;;) {
 		while (words.length && (LEADING.has(words[0]) || /^\w+=/.test(words[0]) || words[0].startsWith("-"))) words.shift();
 		const wrapper = WRAPPERS.get(words[0]?.replace(/^.*\//, "") ?? "");
@@ -156,6 +182,11 @@ function segmentPublishes(segment: string): boolean {
 		while (words[0]?.startsWith("-")) if (wrapper.values.has(words.shift() as string)) words.shift();
 		if (wrapper.operand) words.shift();
 	}
+	return words;
+}
+
+function segmentPublishes(segment: string): boolean {
+	const words = commandWords(segment);
 	const name = words[0]?.replace(/^.*\//, "");
 	const rest = words.slice(1);
 	if (name === "git") return subcommands(rest, GIT_VALUE_OPTIONS)[0] === "push";
@@ -169,4 +200,88 @@ function segmentPublishes(segment: string): boolean {
 export function publishes(command: string): boolean {
 	for (const nested of command.matchAll(NESTED_SHELL)) if (publishes(nested[2])) return true;
 	return STRIP_LITERALS(command).split(SEGMENTS).some(segmentPublishes);
+}
+
+// Responde a git en un directorio. Da undefined si git falla o no escribe nada.
+export type GitLookup = (dir: string, args: readonly string[]) => string | undefined;
+
+export const runGit: GitLookup = (dir, args) => {
+	try {
+		const output = execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
+		return output.trim() || undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+// La rama por defecto es la que apunta origin/HEAD. Sin ella cuentan main y master.
+function isDefaultBranch(branch: string, dir: string, git: GitLookup): boolean {
+	const remoteHead = git(dir, ["symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD"]);
+	if (remoteHead) return branch === remoteHead.replace(/^origin\//, "");
+	return branch === "main" || branch === "master";
+}
+
+// Opciones de git merge que llevan el valor en la palabra siguiente.
+const MERGE_VALUE_OPTIONS = new Set(["-m", "-s", "-X", "-F", "--strategy", "--strategy-option", "--file", "--into-name"]);
+const MERGE_CONTROL = new Set(["--abort", "--continue", "--quit", "-h", "--help"]);
+
+// Traer su propio remoto, como git merge --ff-only origin/main, pone la rama al día y no publica.
+function syncsUpstream(ref: string, dir: string, git: GitLookup): boolean {
+	if (ref === "FETCH_HEAD" || ref.endsWith(UPSTREAM)) return true;
+	const remotes = (git(dir, ["remote"]) ?? "").split("\n").filter(Boolean);
+	return remotes.some((remote) => ref.startsWith(`${remote}/`));
+}
+
+// Las llaves de @{u} cortan la orden en trozos. Se cambian antes por una marca.
+const UPSTREAM = "@upstream";
+const markUpstream = (command: string) => command.replace(/@\{(?:u|upstream)\}/g, UPSTREAM);
+
+const atPath = (dir: string | undefined, target: string) =>
+	target.startsWith("~") ? join(homedir(), target.slice(1)) : dir === undefined ? undefined : resolve(dir, target);
+
+// Una fusión en la rama por defecto: git merge de otra rama local en ella, gh pr merge o glab mr merge.
+// Sigue cd, git -C y git checkout o switch en la misma orden. Un commit nunca cuenta.
+export function mergesIntoDefault(command: string, cwd: string, git: GitLookup = runGit): boolean {
+	for (const nested of command.matchAll(NESTED_SHELL)) if (mergesIntoDefault(nested[2], cwd, git)) return true;
+	let dir: string | undefined = cwd;
+	// La rama a la que pasa cada directorio con checkout o switch antes de fusionar.
+	const switched = new Map<string, string>();
+	for (const segment of STRIP_LITERALS(markUpstream(command)).split(SEGMENTS)) {
+		const words = commandWords(segment);
+		const name = words[0]?.replace(/^.*\//, "");
+		const rest = words.slice(1);
+		if (name === "cd") {
+			dir = rest[0] === "-" ? undefined : atPath(dir, rest[0] ?? "~");
+			continue;
+		}
+		if (name === "gh" || name === "glab") {
+			const [object, action] = subcommands(rest, REPO_OPTIONS);
+			const help = rest.includes("--help") || rest.includes("-h");
+			if (object === (name === "gh" ? "pr" : "mr") && action === "merge" && !help) return true;
+			continue;
+		}
+		if (name !== "git") continue;
+		let repo = dir;
+		let index = 0;
+		for (; index < rest.length && rest[index].startsWith("-"); index++) {
+			if (rest[index] === "-C") repo = atPath(repo, rest[++index] ?? "");
+			else if (GIT_VALUE_OPTIONS.has(rest[index])) index++;
+		}
+		if (repo === undefined) continue;
+		const action = rest[index];
+		const args = rest.slice(index + 1);
+		if (action === "checkout" || action === "switch") {
+			const end = args.indexOf("--");
+			const target = (end < 0 ? args : args.slice(0, end)).find((word) => !word.startsWith("-"));
+			if (target) switched.set(repo, target);
+			continue;
+		}
+		if (action !== "merge" || args.some((word) => MERGE_CONTROL.has(word))) continue;
+		const refs = subcommands(args, MERGE_VALUE_OPTIONS);
+		const here = repo;
+		if (!refs.length || refs.every((ref) => syncsUpstream(ref, here, git))) continue;
+		const branch = switched.get(repo) ?? git(repo, ["symbolic-ref", "--short", "-q", "HEAD"]);
+		if (branch && isDefaultBranch(branch, repo, git)) return true;
+	}
+	return false;
 }

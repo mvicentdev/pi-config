@@ -14,6 +14,7 @@ import {
 	changesFiles,
 	type GitLookup,
 	GO_REASON,
+	injected,
 	mergesIntoDefault,
 	PUBLISH_REASON,
 	publishes,
@@ -63,9 +64,11 @@ export function createReviewGuard(now: () => number = Date.now, registry: () => 
 		pi.on("session_start", reconstruct);
 		pi.on("session_tree", reconstruct);
 
-		// Solo cuenta un mensaje del usuario. pi-subagents avisa con mensajes custom.
-		pi.on("message_end", (event) => {
-			if (event.message.role === "user") state.speak(now());
+		// Solo cuenta lo que escribe el usuario. pi-subagents avisa con mensajes custom, que no pasan por input.
+		// input dice el origen: "extension" viene de sendUserMessage. Orca pega en la terminal, y lo delata su cabecera.
+		pi.on("input", (event) => {
+			if (event.source !== "extension" && !injected(event.text)) state.speak(now());
+			return undefined;
 		});
 
 		pi.on("tool_call", (event, ctx) => {

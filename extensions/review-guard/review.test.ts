@@ -307,6 +307,10 @@ test("el estado rehecho lee los mensajes del usuario", () => {
 	const reviewed = [user("arregla", 0), ...edited, record("verifier", "completed", "Verdict: pass", 3, 4)];
 	assert.equal(rebuild(reviewed).awaitingGo(), true);
 	assert.equal(rebuild([...reviewed, user("Sip", 5)]).awaitingGo(), false);
+	// Un aviso que Orca pega en la terminal o una notificación de tarea no es del usuario.
+	const orca = "──── From: STRUCTWORKER_B265 (structworker_b265) (worker_done) ────\nSubject: Done";
+	assert.equal(rebuild([...reviewed, user(orca, 5)]).awaitingGo(), true);
+	assert.equal(rebuild([...reviewed, user("<task-notification>done</task-notification>", 5)]).awaitingGo(), true);
 	assert.equal(rebuild([...edited, user("Ok. Subimos", 3), record("verifier", "completed", "Verdict: pass", 4, 5)]).awaitingGo(), false);
 });
 

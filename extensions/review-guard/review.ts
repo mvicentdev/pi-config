@@ -8,6 +8,12 @@ export const PUBLISH_REASON =
 export const GO_REASON =
 	"Blocked before publishing: no message of the user came after the last change. Ask the user for the go, and publish only after the answer.";
 
+// Mensajes con rol user que no escribe el usuario. Orca pega su correo en la terminal con la cabecera «──── From: … (tipo) ────».
+// También se descartan las notificaciones <task-notification> y los mensajes de agente de Paseo.
+const INJECTED = /^\s*(?:──── From: |<task-notification>|<paseo-system\b)/;
+
+export const injected = (text: string) => INJECTED.test(text);
+
 // Un worker que acaba, bien o mal, pudo dejar cambios. Un verifier solo aprueba si acabó bien.
 const FINISHED = new Set(["completed", "steered", "error", "stopped", "aborted"]);
 const SUCCEEDED = new Set(["completed", "steered"]);
@@ -123,7 +129,8 @@ export function rebuild(entries: readonly unknown[]): ReviewState {
 			continue;
 		}
 		const message = entry.type === "message" ? entry.message : undefined;
-		if (message?.role === "user" && typeof message.timestamp === "number") state.speak(message.timestamp);
+		if (message?.role === "user" && typeof message.timestamp === "number" && !injected(textOf(message.content)))
+			state.speak(message.timestamp);
 		if (message?.role === "assistant" && Array.isArray(message.content)) {
 			for (const block of message.content) if (block?.type === "toolCall") inputs.set(block.id, block.arguments);
 		}

@@ -1,0 +1,3 @@
+{"type": "session", "version": 3, "id": "01aaaaad-0000-7000-8000-000000000004", "timestamp": "2026-11-20T11:00:00.000Z", "cwd": "/work/proj", "parentSession": "/elsewhere/sessions/--work-proj--/2026-11-20T10-00-00-000Z_01aaaaaa-0000-7000-8000-000000000001.jsonl"}
+{"type": "message", "id": "u1000001", "timestamp": "2026-11-20T11:00:00.000Z", "message": {"role": "user", "content": [{"type": "text", "text": "task"}]}}
+{"type": "message", "id": "a1000001", "timestamp": "2026-11-20T11:00:00.000Z", "message": {"role": "assistant", "content": [{"type": "text", "text": "done"}], "usage": {"cost": {"total": 100.0}}}}

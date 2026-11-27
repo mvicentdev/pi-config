@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { extensionCanonicalNames } from "../../vendor/pi-subagents/src/agent-runner.ts";
-import { EDIT_REASON } from "./guard.ts";
+import { EDIT_REASON, STOP_LINE } from "./guard.ts";
 import mainLoopGuard from "./index.ts";
 
 const DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +40,18 @@ test("el bucle principal no deja que lsp_fix escriba código de un repositorio, 
 	assert.deepEqual(handler({ toolName: "lsp_fix", input: { path: "src/App.ts", write: true } }, ctx), { block: true, reason: EDIT_REASON });
 	assert.equal(handler({ toolName: "lsp_fix", input: { path: "src/App.ts", write: false } }, ctx), undefined);
 	assert.equal(handler({ toolName: "lsp_fix", input: { path: "src/App.ts" } }, ctx), undefined);
+});
+
+// Criterios 1 y 2: el bucle principal no lanza en segundo plano y cada encargo acaba con la orden de parar.
+test("el bucle principal lanza y reanuda cada Agent en primer plano y con la orden de parar", () => {
+	const handler = toolCall();
+	const ctx = { cwd: root };
+	const launch: Record<string, unknown> = { subagent_type: "worker", description: "fix", prompt: "Fix it." };
+	assert.equal(handler({ toolName: "Agent", input: launch }, ctx), undefined);
+	assert.deepEqual(launch, { subagent_type: "worker", description: "fix", prompt: `Fix it.\n\n${STOP_LINE}`, run_in_background: false });
+	const resume: Record<string, unknown> = { resume: "w1", prompt: "Go on.", run_in_background: true };
+	assert.equal(handler({ toolName: "Agent", input: resume }, ctx), undefined);
+	assert.deepEqual(resume, { resume: "w1", prompt: `Go on.\n\n${STOP_LINE}`, run_in_background: false });
 });
 
 // pi-subagents carga en un subagente las extensiones del bucle principal salvo las de exclude_extensions.

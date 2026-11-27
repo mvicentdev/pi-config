@@ -6,6 +6,19 @@ import { fileURLToPath } from "node:url";
 export const EDIT_REASON =
 	"Blocked before writing: the main loop does not change code or tests in a repository. Hand this change to a `worker` subagent with a complete brief: the goal, the exact paths, what stays untouched and the command that proves it.";
 
+export const STOP_LINE = "Stop and report any fact that breaks this plan.";
+
+// pi deja cambiar event.input en tool_call, y el Agent corre con la entrada cambiada. Por eso se corrige y no se bloquea.
+// Cada Agent, nuevo o reanudado, corre en primer plano y acaba con STOP_LINE.
+// Una definición de agente con run_in_background: true gana a la entrada. Ninguna de agents/ lo fija.
+export function prepareLaunch(toolName: string, input: unknown): void {
+	if (toolName !== "Agent" || !input || typeof input !== "object") return;
+	const fields = input as Record<string, unknown>;
+	fields.run_in_background = false;
+	if (typeof fields.prompt !== "string" || fields.prompt.trimEnd().endsWith(STOP_LINE)) return;
+	fields.prompt = `${fields.prompt.trimEnd()}\n\n${STOP_LINE}`;
+}
+
 const WRITE_TOOLS = new Set(["edit", "write"]);
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 

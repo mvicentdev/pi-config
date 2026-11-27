@@ -31,8 +31,8 @@ Each file the main loop reads stays in its context for the rest of the conversat
 
 The user follows every launch in the main conversation.
 
-- Launch each subagent with `run_in_background: false`, and leave its model and thinking to the
-  configuration.
+- The `main-loop-guard` extension runs each `Agent` call in the foreground.
+- Leave the model and thinking of each subagent to the configuration.
 - One subagent takes one question or one change. Launch the independent ones together in one message.
 - The main loop creates each worktree itself. `isolation: worktree` deletes the worktree when the
   agent ends, and leaves its changes only on a branch.
@@ -46,5 +46,6 @@ A subagent sees only its prompt, so the prompt carries everything the task needs
   untouched.
 - Its done criterion is the command that proves the work.
 - It names the paths of the project's rules and of the skills to read first, never a summary of them.
-- It tells the subagent to stop and report any fact that breaks the plan.
+- The `main-loop-guard` extension ends each prompt with the line to stop and report a fact that
+  breaks the plan.
 - It copies each rule the task must follow that those paths do not hold.

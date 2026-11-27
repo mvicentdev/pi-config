@@ -3,11 +3,15 @@
 // lsp_fix también, cuando escribe el arreglo en el fichero (write: true).
 // Cada agente de agents/ la excluye con exclude_extensions, así que solo actúa en el bucle principal.
 // Las escrituras por bash (sed -i, cat >, tee) quedan fuera.
+
+// Tampoco bastaba escribir que cada subagente corre en primer plano y acaba con la orden de parar e informar.
+// Cada Agent pasa a run_in_background: false y lleva al final STOP_LINE.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { toolCallReason } from "./guard.ts";
+import { prepareLaunch, toolCallReason } from "./guard.ts";
 
 export default function mainLoopGuard(pi: ExtensionAPI) {
 	pi.on("tool_call", (event, ctx) => {
+		prepareLaunch(event.toolName, event.input);
 		const reason = toolCallReason(event.toolName, event.input, ctx.cwd);
 		return reason ? { block: true, reason } : undefined;
 	});

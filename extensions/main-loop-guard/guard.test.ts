@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { EDIT_REASON, editReason, toolCallReason } from "./guard.ts";
+import { EDIT_REASON, editReason, prepareLaunch, STOP_LINE, toolCallReason } from "./guard.ts";
 
 // Un repositorio de verdad (con .git) y un directorio de notas fuera de él, en un temporal.
 const root = realpathSync(mkdtempSync(join(tmpdir(), "main-loop-guard-")));
@@ -108,6 +108,48 @@ test("no toca las demás herramientas ni una ruta ausente", () => {
 	assert.equal(editReason("read", join(repo, "src", "App.ts"), root), null);
 	assert.equal(editReason("bash", join(repo, "src", "App.ts"), root), null);
 	assert.equal(editReason("edit", undefined, root), null);
+});
+
+test("un Agent sin run_in_background: false pasa a primer plano", () => {
+	for (const input of [
+		{ subagent_type: "worker", prompt: "fix" } as Record<string, unknown>,
+		{ subagent_type: "worker", prompt: "fix", run_in_background: true },
+		{ subagent_type: "worker", prompt: "fix", run_in_background: "false" },
+		{ resume: "w1", prompt: "again" },
+		{ subagent_type: "verifier", prompt: "review", run_in_background: false },
+	]) {
+		prepareLaunch("Agent", input);
+		assert.equal(input.run_in_background, false, JSON.stringify(input));
+	}
+});
+
+test("cada Agent acaba con la orden de parar e informar, una sola vez", () => {
+	const launch: Record<string, unknown> = { subagent_type: "worker", prompt: "Fix the bug.\n" };
+	prepareLaunch("Agent", launch);
+	assert.equal(launch.prompt, `Fix the bug.\n\n${STOP_LINE}`);
+	prepareLaunch("Agent", launch);
+	assert.equal(launch.prompt, `Fix the bug.\n\n${STOP_LINE}`);
+	const resume: Record<string, unknown> = { resume: "w1", prompt: "Go on." };
+	prepareLaunch("Agent", resume);
+	assert.ok(String(resume.prompt).endsWith(`\n\n${STOP_LINE}`));
+	const ready: Record<string, unknown> = { subagent_type: "worker", prompt: `Do it.\n${STOP_LINE}  \n` };
+	prepareLaunch("Agent", ready);
+	assert.equal(ready.prompt, `Do it.\n${STOP_LINE}  \n`);
+});
+
+test("prepareLaunch no toca las demás herramientas ni una entrada rara", () => {
+	const bash: Record<string, unknown> = { command: "ls" };
+	prepareLaunch("bash", bash);
+	assert.deepEqual(bash, { command: "ls" });
+	assert.doesNotThrow(() => prepareLaunch("Agent", undefined));
+	const noPrompt: Record<string, unknown> = { subagent_type: "worker" };
+	prepareLaunch("Agent", noPrompt);
+	assert.equal(noPrompt.prompt, undefined);
+});
+
+test("la orden de parar es una frase en inglés", () => {
+	assert.match(STOP_LINE, /^Stop and report any fact that breaks/);
+	assert.equal(STOP_LINE.split(/(?<=\.)\s+/).length, 1);
 });
 
 test("el aviso manda el cambio a un worker en dos frases", () => {

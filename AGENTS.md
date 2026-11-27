@@ -41,3 +41,4 @@ Each path is relative to this file's directory. Open each one before the action 
 - `docs/ORCHESTRATION.md`: you launch a subagent or pass five lookups.
 - `docs/PREFERENCES.md`: you write a document, a rule for agents or an HTML page.
 - `docs/SKILLS.md`: you install, update, edit or remove a global skill.
+- `docs/EVALUATION.md`: you grade how agents follow these rules, or change one.

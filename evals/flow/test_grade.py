@@ -107,9 +107,10 @@ class Rubric(unittest.TestCase):
             self.assertEqual(r[i]["tag"], "judge", i)
         # A rule is a hook only when main-loop-guard or review-guard imposes its whole line.
         self.assertEqual({e["id"] for e in grade.load_rubric() if e["tag"] == "hook"}, {"O6", "O14", "W50"})
-        for i in ("W34", "W37", "O1", "O5"):
+        # A pattern over free prompt text cannot tell whether criteria are listed, so a reviewer answers these.
+        for i in ("W34", "W37", "O1", "O5", "W27", "W14"):
             self.assertEqual(r[i]["tag"], "judge", i)
-        for i in ("O7", "W27", "O19"):
+        for i in ("O7", "O19"):
             self.assertEqual(r[i]["tag"], "script", i)
         self.assertEqual({e["id"] for e in grade.load_rubric() if e["tag"] == "script"}, set(grade.SCRIPT_RULES))
 
@@ -148,13 +149,11 @@ class Measures(unittest.TestCase):
         ans = self.a["answers"]
         self.assertEqual(ans["O7"]["answer"], "no")
         self.assertEqual(ans["O7"]["entries"], ["a0000003"])
-        # The verifier prompt names the base but never asks for a verdict per criterion.
-        self.assertEqual(ans["W27"]["answer"], "no")
-        self.assertEqual(ans["W27"]["entries"], ["a0000004"])
+        self.assertNotIn("W27", ans)
+        self.assertNotIn("W14", ans)
         self.assertEqual(ans["O19"]["answer"], "yes")
         self.assertEqual(ans["W28"]["answer"], "yes")
         self.assertEqual(ans["W1"]["answer"], "yes")
-        self.assertEqual(ans["W14"]["answer"], "yes")
         self.assertEqual(ans["A14"]["answer"], "no")
         self.assertEqual(ans["A15"]["answer"], "yes")
         self.assertEqual(ans["O9"]["answer"], "n.a.")
@@ -199,6 +198,14 @@ class Measures(unittest.TestCase):
         self.assertIn(f"`{SESSION_A}` `a0000003`", rules)
         for rid in grade.SCRIPT_RULES:
             self.assertIn(f"| {rid} |", rules)
+
+    def test_criteria_rules_have_no_script_pass_rate_and_go_to_the_judge(self):
+        p, text = report()
+        scripted = text[text.index("## Script rules"):text.index("## Judged rules")]
+        assignment = run("--judge", SESSION_A, "--sessions", FIXTURES).stdout
+        for rid in ("W27", "W14"):
+            self.assertNotIn(f"| {rid} |", scripted)
+            self.assertIn(f"{rid}: ", assignment)
 
 
 # ---------------------------------------------------------------- 4. Judge questions

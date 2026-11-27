@@ -33,8 +33,8 @@ DEFAULT_SESSIONS = os.path.expanduser("~/.pi/agent/sessions")
 RULE_DOCS = ("AGENTS.md", "docs/WORKFLOW.md", "docs/ORCHESTRATION.md")
 TAGS = ("hook", "script", "judge", "unmeasured")
 # The rules this script answers, with how it answers each. Exact reads a field. Heuristic matches patterns.
-SCRIPT_RULES = {"A14": "heuristic", "A15": "heuristic", "W1": "heuristic", "W14": "heuristic", "W27": "heuristic",
-                "W28": "heuristic", "O7": "exact", "O9": "heuristic", "O19": "heuristic"}
+SCRIPT_RULES = {"A14": "heuristic", "A15": "heuristic", "W1": "heuristic", "W28": "heuristic",
+                "O7": "exact", "O9": "heuristic", "O19": "heuristic"}
 MIN_SESSIONS = 20      # below this, a rules version names no retirement candidate
 RELATION = 0.3         # |Pearson r| from which a rule's answers count as related to an outcome measure
 QUOTE_WORDS = 20
@@ -278,7 +278,6 @@ SHELL_WORDS = {"do", "done", "then", "fi", "else", "elif", "if", "for", "while",
 WORKTREE_CREATE = re.compile(r"worktree\.sh new|git worktree add|\bwt switch (?:-c|--create)|orca worktree create")
 PROMPT_WORKTREE_CREATE = re.compile(
     r"\b(?:create|crea)\b[^.\n]{0,40}\bworktree\b|git worktree add|wt switch (?:-c|--create)", re.I)
-CRITERIA = re.compile(r"criteri|acceptance|done when|hecho cuando|terminado cuando|\bAC\d", re.I)
 DIFF_REVIEW = re.compile(
     r"\b(?:review|re-?review|re-?check|revis[ae]|revisi[oó]n|audit[ae]?|auditor|verif(?:y|ica))\b[^.\n]{0,120}?"
     r"\b(?:diff|change|commit|branch|rama|cambio|fix|worktree|MR|merge request)\b"
@@ -291,7 +290,6 @@ DIFF_BASE = re.compile(
     r"|\bgit (?:-C \S+ )?show [^\n`]*\b(?:HEAD|[0-9a-f]{7,40})\b", re.I)
 CORRECTION_WORD = re.compile(r"\b(?:correct\w*|correcci[oó]n\w*|corrig\w+|corrij\w+|fix(?:es)?|arregl\w+)\b", re.I)
 TMP_MD = re.compile(r"^/(?:private/)?tmp/[^/\s]+/[^\s]*\.md$")
-TMP_MD_IN_TEXT = re.compile(r"/tmp/[^/\s`'\"]+/[^\s`'\"]*\.md")
 NOTES_NAME = re.compile(r"(?:notes|notas|plan|handoff)\.md$", re.I)
 REDIRECT_TMP = re.compile(r"(?:cat|tee|printf|echo)[^|;&\n]*?>>?\s*['\"]?(/tmp/[^/\s'\"]+/[^\s'\"]*\.md)")
 
@@ -425,34 +423,11 @@ def script_answers(ev):
                 found.append(x["id"])
         out["W1"] = ans("yes" if found else "no", found or [workers[0]["id"]])
 
-    # W14: each new worker prompt names a notes file and the criteria.
-    if not new_workers:
-        out["W14"] = ans("n.a.")
-    else:
-        bad = [x["id"] for x in new_workers
-               if not (TMP_MD_IN_TEXT.search(x["args"].get("prompt", "") or "")
-                       and CRITERIA.search(x["args"].get("prompt", "") or ""))]
-        out["W14"] = ans("no" if bad else "yes", bad)
-
-    # W27: a verifier after a worker report is asked to review the diff against its base, criterion by criterion.
-    # W28: each such review prompt carries the base of the diff.
+    # W28: each verifier prompt that reviews a change after a worker report carries the base of the diff.
     reviews = []
     if first_worker_report is not None:
         reviews = [x for x in agents if x["type"] == "verifier" and pos[id(x)] > pos[id(first_worker_report)]
                    and DIFF_REVIEW.search(x["args"].get("prompt", "") or "")]
-    if not workers:
-        out["W27"] = ans("n.a.")
-    else:
-        def per_criterion(x):
-            p = x["args"].get("prompt", "") or ""
-            return bool(DIFF_BASE.search(p) and CRITERIA.search(p))
-        if not reviews:
-            out["W27"] = ans("no", [w["id"] for w in workers], "no verifier reviewed a change after a worker report")
-        elif all(per_criterion(x) for x in reviews):
-            out["W27"] = ans("yes", [r["id"] for r in reviews])
-        else:
-            out["W27"] = ans("no", [x["id"] for x in reviews if not per_criterion(x)],
-                             "the review prompt lacks the base of the diff or the criteria")
     if not reviews:
         out["W28"] = ans("n.a.")
     else:
